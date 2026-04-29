@@ -2,6 +2,7 @@ version: "3.7"
 
 services:
   app:
+      user: root
     build: .
     restart: on-failure
     stop_grace_period: 1m
