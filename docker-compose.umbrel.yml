@@ -2,15 +2,15 @@ version: "3.7"
 
 services:
   app:
-    build: .
-    image: camilo152893/geobusca-territorial:latest
-    restart: on-failure
-    stop_grace_period: 1m
-    ports:
-      - "8000:8000"
-    volumes:
-      - ${APP_DATA_DIR}/data:/app/backend/geobusca_data
-    environment:
-      - FLASK_HOST=0.0.0.0
-      - FLASK_PORT=8000
-      - FLASK_DEBUG=0
+      build: .
+          restart: on-failure
+              stop_grace_period: 1m
+                  ports:
+                        - "8000:8000"
+                            volumes:
+                                  - ${APP_DATA_DIR}/data:/app/backend/geobusca_data
+                                      environment:
+                                            - FLASK_HOST=0.0.0.0
+                                                  - FLASK_PORT=8000
+                                                        - FLASK_DEBUG=0
+                                                        
