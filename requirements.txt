@@ -6,6 +6,7 @@ pyproj==3.7.2
 requests==2.33.1
 shapely==2.1.2
 fiona==1.10.1
+python-dotenv==1.0.1
 werkzeug==3.0.3
 reportlab==4.4.10
 gunicorn==25.3.0
