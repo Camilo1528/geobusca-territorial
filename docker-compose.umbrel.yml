@@ -2,6 +2,7 @@ version: "3.7"
 
 services:
   app:
+    build: .
     image: camilo152893/geobusca-territorial:latest
     restart: on-failure
     stop_grace_period: 1m
