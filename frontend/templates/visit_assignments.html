@@ -1,0 +1,108 @@
+{% extends 'base.html' %}
+{% block title %}Asignación de visitas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">Asignación de visitas por funcionario y territorio</h1>
+    <div class="text-muted small">Selecciona un dataset, territorio y agenda para asignar la operación diaria.</div>
+  </div>
+</div>
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-lg-4"><label class="form-label">Dataset</label><select class="form-select" name="dataset_id">{% for ds in datasets %}<option value="{{ ds.id }}" {% if selected_dataset == ds.id %}selected{% endif %}>{{ ds.original_filename }} · {{ ds.owner_name or ds.user_id }}</option>{% endfor %}</select></div>
+      <div class="col-lg-2"><label class="form-label">Territorio</label><select class="form-select" name="territory_type"><option value="">Todos</option>{% for key,label in [('comuna','Comuna'),('barrio','Barrio'),('vereda','Vereda'),('corregimiento','Corregimiento')] %}<option value="{{ key }}" {% if territory_type == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="col-lg-3"><label class="form-label">Valor territorio</label><select class="form-select" name="territory_value"><option value="">Todos</option>{% for value in available_values %}<option value="{{ value }}" {% if territory_value == value %}selected{% endif %}>{{ value }}</option>{% endfor %}</select></div>
+      <div class="col-lg-2"><label class="form-label">Aprobación</label><select class="form-select" name="approval_status"><option value="">Todas</option>{% for value,label in [('submitted','Enviadas'),('approved','Aprobadas'),('returned','Devueltas'),('draft','Borrador')] %}<option value="{{ value }}" {% if approval_filter == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+      <div class="col-lg-1"><button class="btn btn-primary w-100">Ver</button></div>
+    </form>
+  </div>
+</div>
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="dataset_id" value="{{ selected_dataset }}">
+      <input type="hidden" name="territory_type" value="{{ territory_type }}">
+      <input type="hidden" name="territory_value" value="{{ territory_value }}">
+      <input type="hidden" name="approval_status" value="{{ approval_filter }}">
+      <input type="hidden" name="form_action" value="assign">
+      <div class="row g-2 align-items-end mb-3">
+        <div class="col-lg-4"><label class="form-label">Funcionario destino</label><select class="form-select" name="assigned_to" required>{% for u in staff %}<option value="{{ u.id }}">{{ u.full_name or u.email }} · {{ u.role }}</option>{% endfor %}</select></div>
+        <div class="col-lg-2"><label class="form-label">Fecha agenda</label><input class="form-control" type="date" name="agenda_date" value="{{ request.args.get('agenda_date','') }}"></div>
+        <div class="col-lg-2"><label class="form-label">Grupo / ruta</label><input class="form-control" name="route_group" placeholder="Ruta AM"></div>
+        <div class="col-lg-2"><label class="form-label">Hora inicio</label><input class="form-control" type="time" name="shift_start" value="08:00"></div>
+        <div class="col-lg-2"><label class="form-label">Hora fin</label><input class="form-control" type="time" name="shift_end" value="17:00"></div>
+        <div class="col-lg-2"><label class="form-label">Min/visita</label><input class="form-control" type="number" min="5" step="5" name="service_minutes" value="20"></div>
+        <div class="col-lg-2">
+          <div class="form-check mt-4 pt-2">
+            <input class="form-check-input" type="checkbox" name="optimize_route" value="1" id="optimize_route">
+            <label class="form-check-label small" for="optimize_route">Optimizar ruta</label>
+          </div>
+        </div>
+        <div class="col-lg-12"><button class="btn btn-success">Asignar seleccionados</button></div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead><tr><th><input type="checkbox" onclick="document.querySelectorAll('.pick-row').forEach(cb => cb.checked = this.checked)"></th><th>Fila</th><th>Nombre</th><th>Dirección</th><th>Territorio</th><th>Deuda</th><th>Aprobación</th><th>Asignación actual</th></tr></thead>
+          <tbody>
+          {% for item in preview_rows %}
+            <tr>
+              <td><input class="form-check-input pick-row" type="checkbox" name="row_idx" value="{{ item.row_idx }}"></td>
+              <td>{{ item.row_idx }}</td>
+              <td>{{ item.nom_establec or 'Sin nombre' }}</td>
+              <td class="small">{{ item.direccion or 'Sin dirección' }}</td>
+              <td>{{ item.territorio_principal_nombre or item.barrio or item.vereda or item.comuna or item.corregimiento }}</td>
+              <td>{{ item.deuda_estado or '—' }}</td>
+              <td>{{ item.approval_status or 'draft' }}</td>
+              <td>{{ item.assigned_to_name or item.visita_funcionario or '—' }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="8" class="text-muted">No hay filas para la selección actual.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </form>
+  </div>
+</div>
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h2 class="h6 mb-0">Carga masiva de agendas por funcionario</h2><a class="btn btn-outline-secondary btn-sm" href="{{ url_for('visit_assignments_template') }}">Descargar plantilla</a></div>
+    <p class="text-muted small mb-3">Sube un CSV o Excel con columnas como <code>dataset_id</code>, <code>row_idx</code>, <code>assigned_to_email</code> o <code>assigned_to</code>, <code>agenda_date</code>, <code>route_group</code>, <code>agenda_order</code>. Puedes descargar una plantilla lista para diligenciar.</p>
+    <form method="post" enctype="multipart/form-data" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="dataset_id" value="{{ selected_dataset }}">
+      <input type="hidden" name="territory_type" value="{{ territory_type }}">
+      <input type="hidden" name="territory_value" value="{{ territory_value }}">
+      <input type="hidden" name="approval_status" value="{{ approval_filter }}">
+      <input type="hidden" name="form_action" value="bulk_upload">
+      <div class="col-lg-8"><label class="form-label">Archivo agenda</label><input class="form-control" type="file" name="agenda_file" accept=".csv,.xlsx,.xls" required></div>
+      <div class="col-lg-4"><button class="btn btn-outline-primary w-100">Cargar agenda masiva</button></div>
+    </form>
+  </div>
+</div>
+<div class="card shadow-sm mt-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2"><h2 class="h6 mb-0">Planificador multi-funcionario / multi-vehículo</h2><a class="btn btn-outline-secondary btn-sm" href="{{ url_for('visit_assignments_multi_template') }}">Descargar plantilla de plan</a></div>
+    <p class="text-muted small mb-3">Diligencia una línea por funcionario con formato <code>email|capacidad|hora_inicio|hora_fin|vehiculo</code>. El sistema distribuye visitas respetando capacidad y ventana horaria.</p>
+    <form method="post" class="row g-2 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="dataset_id" value="{{ selected_dataset }}">
+      <input type="hidden" name="territory_type" value="{{ territory_type }}">
+      <input type="hidden" name="territory_value" value="{{ territory_value }}">
+      <input type="hidden" name="approval_status" value="{{ approval_filter }}">
+      <input type="hidden" name="form_action" value="multi_plan">
+      {% for item in preview_rows %}<input type="hidden" name="row_idx" value="{{ item.row_idx }}">{% endfor %}
+      <div class="col-lg-8"><label class="form-label">Plan de funcionarios</label><textarea class="form-control" name="planner_lines" rows="5" placeholder="funcionario1@rionegro.gov.co|8|08:00|12:00|Moto 1&#10;funcionario2@rionegro.gov.co|10|08:30|17:00|Moto 2"></textarea></div>
+      <div class="col-lg-2"><label class="form-label">Fecha agenda</label><input class="form-control" type="date" name="agenda_date" value="{{ request.args.get('agenda_date','') }}"></div>
+      <div class="col-lg-2"><label class="form-label">Min/visita</label><input class="form-control" type="number" min="5" step="5" name="service_minutes" value="20"></div>
+      <div class="col-lg-3"><label class="form-label">Grupo / ruta base</label><input class="form-control" name="route_group" placeholder="Operativo Norte"></div>
+      <div class="col-lg-3"><div class="form-check mt-4 pt-2"><input class="form-check-input" type="checkbox" name="optimize_route" value="1" id="multi_optimize_route" checked><label class="form-check-label small" for="multi_optimize_route">Optimizar por vial/geometría</label></div></div>
+      <div class="col-lg-12"><button class="btn btn-outline-success">Planificar seleccionadas entre varios funcionarios</button></div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

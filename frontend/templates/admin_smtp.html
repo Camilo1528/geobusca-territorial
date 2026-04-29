@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Configuración SMTP{% endblock %}
+
+{% block content %}
+<div class="container animate-in">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="bg-primary text-white rounded-4 p-3 d-flex align-items-center justify-content-center shadow-sm">
+                    <i class="bi bi-envelope-at fs-2"></i>
+                </div>
+                <div>
+                    <h1 class="h3 mb-0 fw-bold">Configuración de Correo (SMTP)</h1>
+                    <p class="text-muted mb-0">Define el servidor para alertas de SLA y notificaciones automáticas.</p>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4">
+                <div class="card-body p-4">
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        
+                        <div class="row g-4">
+                            <div class="col-md-9">
+                                <label class="form-label fw-bold small text-uppercase">Servidor SMTP</label>
+                                <input type="text" name="smtp_server" class="form-control rounded-3" value="{{ settings.smtp_server or '' }}" placeholder="smtp.gmail.com" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label fw-bold small text-uppercase">Puerto</label>
+                                <input type="number" name="smtp_port" class="form-control rounded-3" value="{{ settings.smtp_port or 587 }}" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-uppercase">Usuario / Email</label>
+                                <input type="email" name="smtp_user" class="form-control rounded-3" value="{{ settings.smtp_user or '' }}" placeholder="notificaciones@entidad.gov.co" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-uppercase">Contraseña</label>
+                                <input type="password" name="smtp_password" class="form-control rounded-3" value="{{ settings.smtp_password or '' }}" placeholder="••••••••••••" required>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small text-uppercase">Email Remitente (De:)</label>
+                                <input type="email" name="smtp_from" class="form-control rounded-3" value="{{ settings.smtp_from or '' }}" placeholder="GeoBusca Notificaciones <noreply@rionegro.gov.co>" required>
+                            </div>
+
+                            <div class="col-md-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="use_tls" id="useTls" {{ 'checked' if settings.use_tls else '' }}>
+                                    <label class="form-check-label fw-bold" for="useTls">Usar Conexión Segura (TLS/SSL)</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-12 pt-4 border-top">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div class="text-muted small">
+                                        <i class="bi bi-info-circle me-1"></i> Asegúrate de permitir "Apps menos seguras" o usar una "Contraseña de aplicación" si usas Gmail.
+                                    </div>
+                                    <button type="submit" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm">
+                                        <i class="bi bi-save me-2"></i>Guardar Configuración
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

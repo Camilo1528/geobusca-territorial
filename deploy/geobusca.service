@@ -1,0 +1,15 @@
+[Unit]
+Description=GeoBusca Territorial
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/geobusca
+EnvironmentFile=/opt/geobusca/.env
+ExecStart=/opt/geobusca/.venv/bin/gunicorn -c /opt/geobusca/gunicorn.conf.py run_web:app
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

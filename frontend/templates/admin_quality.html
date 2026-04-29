@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+{% block title %}Calidad Operativa{% endblock %}
+
+{% block content %}
+<div class="container-fluid animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 fw-bold">Calidad Operativa (GIS Audit)</h1>
+            <p class="text-muted">Control de precisión GPS y veracidad de visitas en campo.</p>
+        </div>
+        <div class="badge bg-danger rounded-pill px-3 py-2 shadow-sm">
+            {{ anomalies|length }} Anomalías Detectadas
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="bg-light">
+                            <tr>
+                                <th class="ps-4">Funcionario</th>
+                                <th>Dataset / Fila</th>
+                                <th>Distancia Anormal</th>
+                                <th>Estado Visita</th>
+                                <th>Fecha Registro</th>
+                                <th class="text-end pe-4">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for a in anomalies %}
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="fw-bold">{{ a.official_name }}</div>
+                                    <div class="small text-muted">ID: {{ a.assigned_to }}</div>
+                                </td>
+                                <td>
+                                    <div class="small fw-semibold text-truncate" style="max-width: 200px;">{{ a.original_filename }}</div>
+                                    <div class="text-muted small">Fila: {{ a.row_idx }}</div>
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">
+                                            {{ a.distance_anomaly_meters }} m
+                                        </span>
+                                        <i class="bi bi-exclamation-triangle text-danger" data-bs-toggle="tooltip" title="El funcionario estaba a más de 300m del punto destino al hacer check-in."></i>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark rounded-pill px-2" style="font-size: 0.7rem;">
+                                        {{ a.completion_status|upper }}
+                                    </span>
+                                </td>
+                                <td class="text-muted small">
+                                    {{ a.updated_at }}
+                                </td>
+                                <td class="text-end pe-4">
+                                    <a href="{{ url_for('visit_print_view', dataset_id=a.dataset_id, row_idx=a.row_idx) }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                                        Revisar
+                                    </a>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="bi bi-shield-check fs-1 d-block mb-3 opacity-25"></i>
+                                    No se han detectado anomalías de GPS. ¡Excelente calidad operativa!
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="alert alert-info border-0 shadow-sm rounded-4 d-flex align-items-center gap-3">
+        <i class="bi bi-info-circle-fill fs-4"></i>
+        <div>
+            <strong>¿Cómo funciona?</strong> El sistema compara automáticamente las coordenadas capturadas por el GPS del dispositivo móvil durante el <strong>Check-in</strong> contra las coordenadas geocodificadas del predio. Si la diferencia es mayor a <strong>300 metros</strong>, se marca como una anomalía de calidad.
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-light { background-color: #f8f9fa !important; }
+    .animate-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+{% endblock %}

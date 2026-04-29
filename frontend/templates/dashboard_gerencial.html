@@ -1,0 +1,229 @@
+{% extends 'base.html' %}
+{% block title %}Tablero Gerencial{% endblock %}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+        <div>
+            <h1 class="h3 mb-0 text-gray-800 fw-bold">📊 Tablero Gerencial</h1>
+            <p class="text-muted mb-0">
+                {% if metrics.start_date == metrics.end_date %}
+                    Análisis para el día {{ metrics.start_date }}
+                {% else %}
+                    Análisis desde {{ metrics.start_date }} hasta {{ metrics.end_date }}
+                {% endif %}
+            </p>
+        </div>
+        <form class="d-flex gap-2 align-items-center bg-white p-2 rounded-3 shadow-sm border" id="filter-form">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-transparent border-0 text-muted small">Desde</span>
+                <input type="date" name="start_date" class="form-control border-0" value="{{ metrics.start_date }}">
+            </div>
+            <div class="input-group input-group-sm">
+                <span class="input-group-text bg-transparent border-0 text-muted small">Hasta</span>
+                <input type="date" name="end_date" class="form-control border-0" value="{{ metrics.end_date }}">
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm rounded-2 px-3">Filtrar</button>
+        </form>
+        <div class="d-flex gap-2">
+            <form method="POST" action="{{ url_for('admin.trigger_alerts') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-outline-warning btn-sm rounded-pill px-3 shadow-sm">
+                    <i class="bi bi-megaphone me-1"></i> Disparar Alertas
+                </button>
+            </form>
+            <a href="{{ url_for('admin.admin_backup') }}" class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-sm">
+                <i class="bi bi-database-down me-1"></i> Backup DB
+            </a>
+            <a href="{{ url_for('admin.export_dashboard_pdf', start_date=metrics.start_date, end_date=metrics.end_date) }}" class="btn btn-danger btn-sm rounded-pill px-3 shadow-sm">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
+            </a>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 h-100 bg-gradient-primary text-white">
+                <div class="small opacity-75">Cumplimiento SLA</div>
+                <div class="h2 fw-bold mb-0">
+                    {% set met = metrics.sla.met or 0 %}
+                    {% set breached = metrics.sla.breached or 0 %}
+                    {{ met }} / {{ met + breached }}
+                </div>
+                <div class="progress mt-2" style="height: 4px; background: rgba(255,255,255,0.2)">
+                    {% set total_sla = met + breached %}
+                    {% set pct = (met * 100 / (total_sla if total_sla > 0 else 1))|round|int %}
+                    <div class="progress-bar bg-white shadow-none" data-width="{{ pct }}"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 h-100 border-start border-success border-4">
+                <div class="small text-muted">Visitas Completadas</div>
+                <div class="h2 fw-bold mb-0 text-success">{{ metrics.completion.completed or 0 }}</div>
+                <div class="small text-muted mt-1">Registradas hoy</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 h-100 border-start border-danger border-4">
+                <div class="small text-muted">SLA Incumplido</div>
+                <div class="h2 fw-bold mb-0 text-danger">{{ metrics.sla.breached or 0 }}</div>
+                <div class="small text-muted mt-1">Requiere atención</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm rounded-4 p-3 h-100 border-start border-warning border-4">
+                <div class="small text-muted">En Curso</div>
+                <div class="h2 fw-bold mb-0 text-warning">{{ metrics.completion.in_progress or 0 }}</div>
+                <div class="small text-muted mt-1">Funcionarios activos</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Gráfico SLA -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="card-title fw-bold">Estado de SLA (Distribución)</h5>
+                </div>
+                <div class="card-body p-4 d-flex align-items-center justify-content-center">
+                    <div style="width: 100%; max-width: 300px;">
+                        <canvas id="slaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Productividad por Funcionario -->
+        <div class="col-lg-6">
+            <div class="card border-0 shadow-sm rounded-4 h-100">
+                <div class="card-header bg-transparent border-0 pt-4 px-4">
+                    <h5 class="card-title fw-bold">Productividad por Funcionario</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light text-muted small text-uppercase">
+                                <tr>
+                                    <th class="px-4 border-0 py-3">Funcionario</th>
+                                    <th class="border-0 py-3">Asignadas</th>
+                                    <th class="border-0 py-3">Completadas</th>
+                                    <th class="border-0 px-4 text-end py-3">Brechas SLA</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in metrics.staff %}
+                                <tr>
+                                    <td class="px-4">
+                                        <div class="fw-semibold">{{ s.full_name }}</div>
+                                    </td>
+                                    <td><span class="badge bg-light text-dark rounded-pill px-3">{{ s.assigned }}</span></td>
+                                    <td><span class="badge bg-success-soft text-success rounded-pill px-3">{{ s.completed }}</span></td>
+                                    <td class="px-4 text-end">
+                                        {% if s.breached > 0 %}
+                                            <span class="badge bg-danger rounded-pill px-3">{{ s.breached }}</span>
+                                        {% else %}
+                                            <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not metrics.staff %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5 text-muted">No hay actividad registrada para esta fecha.</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="chart-data" type="application/json">
+{
+    "sla": {
+        "labels": ["{{ sla_labels.met }}", "{{ sla_labels.breached }}", "{{ sla_labels.active }}", "Pendiente"],
+        "values": [
+            {{ metrics.sla.met or 0 }},
+            {{ metrics.sla.breached or 0 }},
+            {{ metrics.sla.active or 0 }},
+            {{ metrics.sla.planned or 0 }}
+        ],
+        "breached_count": {{ metrics.sla.breached or 0 }}
+    }
+}
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Sync progress bars to avoid CSS squiggles
+    document.querySelectorAll('.progress-bar[data-width]').forEach(el => {
+        el.style.width = el.dataset.width + '%';
+    });
+
+    const chartData = JSON.parse(document.getElementById('chart-data').textContent);
+    
+    if (chartData.sla.breached_count > 0) {
+        AdminDashboard.showSLABreachAlert(chartData.sla.breached_count);
+    }
+
+    const ctx = document.getElementById('slaChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: chartData.sla.labels,
+            datasets: [{
+                data: chartData.sla.values,
+                backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#6c757d'],
+                borderWidth: 0,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20,
+                        font: { size: 12 }
+                    }
+                }
+            },
+            cutout: '75%'
+        }
+    });
+});
+</script>
+
+<style>
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+}
+.bg-success-soft {
+    background-color: rgba(40, 167, 69, 0.1);
+}
+.rounded-4 {
+    border-radius: 1rem !important;
+}
+.card {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+}
+.table thead th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+</style>
+{% endblock %}

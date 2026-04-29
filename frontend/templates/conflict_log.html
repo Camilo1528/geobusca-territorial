@@ -1,0 +1,42 @@
+
+{% extends 'base.html' %}
+{% block title %}Bitácora de conflictos{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h1 class="h4 mb-3">Bitácora de conflictos</h1>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Fecha</th><th>Fila</th><th>Funcionario</th><th>Cliente</th><th>Servidor</th><th>Estado</th><th>Notas</th><th></th></tr></thead>
+        <tbody>
+          {% for item in conflicts %}
+          <tr>
+            <td>{{ item.created_at }}</td>
+            <td>{{ item.dataset_id }}:{{ item.row_idx }}</td>
+            <td>{{ item.actor_name or 'Sin usuario' }}</td>
+            <td>{{ item.client_version }}</td>
+            <td>{{ item.server_version }}</td>
+            <td><span class="badge {{ 'text-bg-warning' if item.resolution_status == 'pending' else 'text-bg-success' }}">{{ item.resolution_status }}</span></td>
+            <td class="small">{{ item.notes }}</td>
+            <td class="d-flex gap-2">
+              <a class="btn btn-outline-primary btn-sm" href="{{ url_for('conflict_detail', conflict_id=item.id) }}">Comparar</a>
+              <form method="post" action="{{ url_for('resolve_conflict', conflict_id=item.id) }}" class="d-flex gap-2">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <select class="form-select form-select-sm" name="resolution_status" style="max-width: 160px;">
+                  <option value="resolved">Resuelto</option>
+                  <option value="ignored">Ignorado</option>
+                  <option value="overwritten">Sobrescrito</option>
+                </select>
+                <button class="btn btn-primary btn-sm">Guardar</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-muted">No hay conflictos registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

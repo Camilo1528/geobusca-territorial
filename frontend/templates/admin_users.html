@@ -1,0 +1,110 @@
+
+{% extends 'base.html' %}
+{% block title %}Usuarios, roles y permisos{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+      <h1 class="h4 mb-0">Usuarios, roles y permisos</h1>
+      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+        + Nuevo Usuario
+      </button>
+    </div>
+
+    <!-- Modal Nuevo Usuario -->
+    <div class="modal fade" id="createUserModal" tabindex="-1">
+      <div class="modal-dialog">
+        <div class="modal-content card" style="backdrop-filter: blur(16px); background: rgba(255,255,255,0.9);">
+          <div class="modal-header border-bottom-0">
+            <h5 class="modal-title fw-bold">Crear Nuevo Usuario</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <form method="post">
+            <div class="modal-body pt-0">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <input type="hidden" name="action" value="create">
+              
+              <div class="mb-3">
+                <label class="form-label">Nombre Completo</label>
+                <input type="text" name="full_name" class="form-control" required>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Correo Electrónico</label>
+                <input type="email" name="email" class="form-control" required>
+              </div>
+              
+              <div class="mb-3">
+                <label class="form-label">Rol Inicial</label>
+                <select name="role" class="form-select">
+                  {% for role_key, role_name in role_labels.items() %}
+                  <option value="{{ role_key }}" {% if role_key == 'funcionario' %}selected{% endif %}>{{ role_name }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              
+              <div class="alert alert-info small py-2 mb-0">
+                La contraseña temporal será <strong>temporal123</strong>. El usuario deberá cambiarla en su primer inicio de sesión.
+              </div>
+            </div>
+            <div class="modal-footer border-top-0">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+              <button type="submit" class="btn btn-primary">Crear Usuario</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Rol actual</th><th>Creado</th><th>Rol</th><th>Permisos por módulo</th></tr></thead>
+        <tbody>
+          {% for item in users %}
+          <tr>
+            <td>{{ item.id }}</td>
+            <td>{{ item.full_name }}</td>
+            <td>{{ item.email }}</td>
+            <td><span class="badge text-bg-light">{{ role_labels.get(item.role, item.role) }}</span></td>
+            <td>{{ item.created_at }}</td>
+            <td style="min-width: 220px;">
+              <form method="post" class="d-flex gap-2 align-items-center">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="user_id" value="{{ item.id }}">
+                <input type="hidden" name="action" value="role">
+                <select class="form-select form-select-sm" name="role">
+                  {% for role_key, role_name in role_labels.items() %}
+                  <option value="{{ role_key }}" {% if item.role == role_key %}selected{% endif %}>{{ role_name }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-primary btn-sm">Guardar</button>
+              </form>
+            </td>
+            <td style="min-width: 420px;">
+              <form method="post" class="border rounded p-2 bg-light-subtle">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="user_id" value="{{ item.id }}">
+                <input type="hidden" name="action" value="permissions">
+                <div class="row g-1">
+                  {% for module_key, module_name in module_labels.items() %}
+                  <div class="col-md-6">
+                    <label class="form-check small">
+                      <input class="form-check-input" type="checkbox" name="perm___{{ module_key }}" {% if item.module_permissions.get(module_key) %}checked{% endif %}>
+                      <span class="form-check-label">{{ module_name }}</span>
+                    </label>
+                  </div>
+                  {% endfor %}
+                </div>
+                <div class="mt-2 text-end">
+                  <button class="btn btn-outline-dark btn-sm">Guardar permisos</button>
+                </div>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

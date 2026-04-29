@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+{% block title %}Aprobación de visitas{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">Workflow de aprobación por revisor</h1>
+    <div class="text-muted small">Revisa visitas enviadas por funcionarios y aprueba, devuelve o rechaza.</div>
+  </div>
+  <form method="get" class="d-flex gap-2">
+    <select class="form-select" name="status">
+      {% for value, label in [('submitted','Enviadas'),('under_review','En revisión'),('returned','Devueltas'),('approved','Aprobadas'),('rejected','Rechazadas'),('all','Todas')] %}
+      <option value="{{ value }}" {% if selected_status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary">Filtrar</button>
+  </form>
+</div>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Dataset</th><th>Fila</th><th>Funcionario</th><th>Asignado</th><th>Estado</th><th>Agenda</th><th>Actualizado</th><th>Acciones</th></tr></thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ item.original_filename }}</td>
+            <td>{{ item.row_idx }}</td>
+            <td>{{ item.created_by_name or '—' }}</td>
+            <td>{{ item.assigned_to_name or '—' }}</td>
+            <td><span class="badge text-bg-{{ item.approval_badge }}">{{ item.approval_status or 'draft' }}</span></td>
+            <td>{{ item.agenda_date or '—' }}{% if item.route_group %}<br><span class="small text-muted">{{ item.route_group }}</span>{% endif %}</td>
+            <td class="small">{{ item.updated_at or item.created_at }}</td>
+            <td>
+              <div class="d-flex flex-column gap-1">
+                <a class="btn btn-outline-primary btn-sm" href="{{ url_for('visit_print_view', dataset_id=item.dataset_id, row_idx=item.row_idx) }}">Ver RVT</a>
+                <form method="post" class="d-flex flex-column gap-1">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <input type="hidden" name="dataset_id" value="{{ item.dataset_id }}">
+                  <input type="hidden" name="row_idx" value="{{ item.row_idx }}">
+                  <select class="form-select form-select-sm approval-action" name="action">
+                    <option value="approve">Aprobar</option>
+                    <option value="return">Devolver</option>
+                    <option value="reject">Rechazar</option>
+                    <option value="review">Marcar en revisión</option>
+                  </select>
+                  <select class="form-select form-select-sm approval-reason" name="reason_code">
+                    <option value="">Causal estructurada</option>
+                    {% for action_name, options in approval_reason_options.items() %}
+                      {% for value, label in options %}
+                      <option value="{{ value }}" data-action="{{ action_name }}">{{ action_name|capitalize }} · {{ label }}</option>
+                      {% endfor %}
+                    {% endfor %}
+                  </select>
+                  <textarea class="form-control form-control-sm" name="notes" rows="2" placeholder="Observación (obligatoria al devolver/rechazar)"></textarea>
+                  <button class="btn btn-primary btn-sm">Aplicar</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-muted">No hay visitas para este filtro.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.querySelectorAll('.approval-action').forEach(function(actionSelect){
+  const form = actionSelect.closest('form');
+  const reason = form.querySelector('.approval-reason');
+  const refresh = function(){
+    const current = actionSelect.value;
+    Array.from(reason.options).forEach(function(opt){
+      if (!opt.value) { opt.hidden = false; return; }
+      opt.hidden = opt.dataset.action !== current;
+    });
+    if (reason.selectedOptions.length && reason.selectedOptions[0].hidden) reason.value = '';
+  };
+  actionSelect.addEventListener('change', refresh);
+  refresh();
+});
+</script>
+{% endblock %}

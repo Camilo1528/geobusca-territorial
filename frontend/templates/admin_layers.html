@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% block title %}Gestión de Capas GIS{% endblock %}
+
+{% block content %}
+<div class="container animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 fw-bold">Infraestructura GIS</h1>
+            <p class="text-muted">Gestiona los polígonos territoriales para el enriquecimiento automático.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#uploadLayerModal">
+                <i class="bi bi-upload me-2"></i>Nueva Capa Local
+            </button>
+            <button class="btn btn-outline-primary rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#arcgisModal">
+                <i class="bi bi-globe me-2"></i>Conectar ArcGIS
+            </button>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Nombre de Capa</th>
+                        <th>Tipo</th>
+                        <th>Origen</th>
+                        <th>Elementos</th>
+                        <th>Estado</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for layer in layers %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold">{{ layer.display_name }}</div>
+                            <div class="small text-muted">{{ layer.file_path|basename }}</div>
+                        </td>
+                        <td><span class="badge bg-secondary bg-opacity-10 text-secondary">{{ layer.layer_type|upper }}</span></td>
+                        <td><span class="small">{{ layer.source }}</span></td>
+                        <td><span class="fw-bold">{{ layer.feature_count }}</span></td>
+                        <td>
+                            {% if layer.is_active %}
+                            <span class="badge bg-success rounded-pill px-3">Activa</span>
+                            {% else %}
+                            <span class="badge bg-light text-muted rounded-pill px-3">Inactiva</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <form method="post" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="action" value="toggle">
+                                <input type="hidden" name="layer_id" value="{{ layer.id }}">
+                                <button class="btn btn-sm btn-outline-secondary rounded-pill">
+                                    {{ 'Desactivar' if layer.is_active else 'Activar' }}
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-layers fs-1 d-block mb-3 opacity-25"></i>
+                            No hay capas territoriales cargadas.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Upload -->
+<div class="modal fade" id="uploadLayerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="action" value="upload">
+                <div class="modal-header border-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Cargar Capa Geoespacial</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre descriptivo</label>
+                        <input type="text" name="display_name" class="form-control" placeholder="Ej: Barrios Rionegro 2024" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tipo de Territorio</label>
+                        <select name="layer_type" class="form-select">
+                            {% for lt in layer_types %}
+                            <option value="{{ lt }}">{{ lt|replace('_', ' ')|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Archivo (GeoJSON, SHP o GPKG)</label>
+                        <input type="file" name="layer_file" class="form-control" required>
+                        <div class="form-text">El archivo será procesado para estandarizar nombres y códigos.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Procesar y Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal ArcGIS -->
+<div class="modal fade" id="arcgisModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="action" value="arcgis">
+                <div class="modal-header border-0 pt-4 px-4">
+                    <h5 class="modal-title fw-bold">Conectar Servicio ArcGIS REST</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre descriptivo</label>
+                        <input type="text" name="display_name" class="form-control" placeholder="Ej: Capa Oficial Planeación" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tipo de Territorio</label>
+                        <select name="layer_type" class="form-select">
+                            {% for lt in layer_types %}
+                            <option value="{{ lt }}">{{ lt|replace('_', ' ')|title }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">URL del Servicio (FeatureServer/0)</label>
+                        <input type="url" name="service_url" class="form-control" placeholder="https://services.arcgis.com/..." required>
+                        <div class="form-text">El sistema descargará los datos y los mantendrá en caché local.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pb-4 px-4">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Conectar e Importar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

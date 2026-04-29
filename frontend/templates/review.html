@@ -1,0 +1,575 @@
+{% extends 'base.html' %}
+{% block title %}Revisión del Dataset{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5 animate-in">
+  <div>
+    <h1 class="h3 mb-1 fw-bold">Dataset {{ dataset.id }}</h1>
+    <div class="text-muted d-flex align-items-center gap-2">
+      <i class="bi bi-file-earmark-spreadsheet text-primary"></i>
+      {{ dataset.original_filename }} · {{ dataset.city }}, {{ dataset.region }}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{{ url_for('visits.visits_view', dataset_id=dataset.id) }}">
+      <i class="bi bi-geo-alt me-2"></i>Visitas y Deuda
+    </a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('dashboard.dashboard') }}">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </a>
+  </div>
+</div>
+
+{% if schema_report and (not schema_report.is_valid or schema_report.quality_issues) %}
+<div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-5 stagger-1">
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <div class="bg-warning text-white rounded-circle p-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+      <i class="bi bi-shield-exclamation fs-4"></i>
+    </div>
+    <h3 class="h5 mb-0 fw-bold">Problemas de Calidad e Integridad</h3>
+  </div>
+  <div class="row g-4">
+    {% if schema_report.missing_columns %}
+    <div class="col-md-6">
+      <div class="fw-bold small text-uppercase mb-2 text-warning-emphasis">Columnas Requeridas Faltantes</div>
+      <ul class="list-unstyled mb-0">
+        {% for col in schema_report.missing_columns %}
+        <li class="d-flex align-items-center gap-2 mb-1">
+          <i class="bi bi-x-circle text-danger"></i>
+          <code>{{ col }}</code>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% if schema_report.quality_issues %}
+    <div class="col-md-6">
+      <div class="fw-bold small text-uppercase mb-2 text-warning-emphasis">Inconsistencias de Datos (Valores Nulos)</div>
+      <ul class="list-unstyled mb-0">
+        {% for issue in schema_report.quality_issues %}
+        <li class="d-flex align-items-center gap-2 mb-1 small">
+          <i class="bi bi-info-circle text-warning"></i>
+          <strong>{{ issue.column }}:</strong> {{ issue.null_count }} filas nulas ({{ issue.null_percentage }}%)
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+  </div>
+  <div class="mt-3 small text-muted">
+    <i class="bi bi-info-circle me-1"></i> Se recomienda corregir el archivo original para asegurar que los flujos de visita funcionen correctamente, <strong>pero puedes continuar con el procesamiento si lo deseas</strong>.
+  </div>
+</div>
+{% endif %}
+
+<div class="row g-4 mb-5">
+  <div class="col-lg-7 stagger-1">
+    <div class="card h-100 border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-4 fw-bold d-flex align-items-center gap-2">
+          <i class="bi bi-gear-wide-connected text-primary"></i>
+          Configuración de Procesamiento
+        </h2>
+        
+        <div class="row g-4">
+          <div class="col-md-6">
+            <label class="form-label small fw-bold text-uppercase tracking-wider">Columna de dirección</label>
+            <select id="addressCol" class="form-select">
+              {% for col in columns %}
+              <option value="{{ col }}" {% if suggested_address_cols and col == suggested_address_cols[0] %}selected{% endif %}>{{ col }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small fw-bold text-uppercase tracking-wider">Columna de actividad</label>
+            <select id="activityCol" class="form-select">
+              <option value="">Autodetectar actividad</option>
+              {% for col in columns %}
+              <option value="{{ col }}" {% if profile.activity_candidates and col == profile.activity_candidates[0] %}selected{% endif %}>{{ col }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label small fw-bold text-uppercase tracking-wider">API Key (Google/LocationIQ)</label>
+            <div class="input-group">
+              <span class="input-group-text bg-white"><i class="bi bi-key"></i></span>
+              <input id="apiKey" class="form-control" type="password" placeholder="Usar valor por defecto del servidor (.env)">
+            </div>
+          </div>
+          
+          <div class="col-12 mt-4">
+            <div class="d-flex gap-2">
+              <button id="processBtn" class="btn btn-primary flex-grow-1 py-3">
+                <i class="bi bi-lightning-fill me-2"></i>Procesar Ahora
+              </button>
+              <button id="processAsyncBtn" class="btn btn-outline-primary py-3">
+                <i class="bi bi-clock-history me-2"></i>Background
+              </button>
+            </div>
+            <div class="mt-3">
+              <button id="reverseBtn" class="btn btn-link text-muted btn-sm text-decoration-none">
+                <i class="bi bi-geo-alt me-1"></i>Geocodificación Inversa (Experimental)
+              </button>
+              <button id="suggestTerritoriesBtn" class="btn btn-link text-info btn-sm text-decoration-none ms-3">
+                <i class="bi bi-geo-fill me-1"></i>Sugerir Territorios (GIS)
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div id="status" class="alert alert-info border-0 mt-4 py-2 small d-none"></div>
+        <div id="jobStatus" class="mt-2 small fw-bold text-primary"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-lg-5 stagger-2">
+    <div class="card h-100 border-0 shadow-sm bg-light-soft">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-4 fw-bold">Perfil del Archivo</h2>
+        <div class="d-flex gap-3 mb-4">
+          <div class="badge bg-white text-dark border p-2 flex-grow-1">
+            <div class="small text-muted">Filas</div>
+            <div class="fs-5 fw-bold">{{ profile.rows }}</div>
+          </div>
+          <div class="badge bg-white text-dark border p-2 flex-grow-1">
+            <div class="small text-muted">Columnas</div>
+            <div class="fs-5 fw-bold">{{ profile.columns }}</div>
+          </div>
+        </div>
+        
+        <div class="small mb-4">
+          <div class="mb-2"><strong>Direcciones:</strong> {{ profile.address_candidates|join(', ') or 'Sin sugerencias' }}</div>
+          <div class="mb-2"><strong>Actividades:</strong> {{ profile.activity_candidates|join(', ') or 'Sin sugerencias' }}</div>
+          <div><strong>Capas activas:</strong> 
+            <span class="text-primary">
+              {% if layers %}
+                {% for layer in layers %}{{ layer.display_name }}{% if not loop.last %}, {% endif %}{% endfor %}
+              {% else %}
+                Ninguna
+              {% endif %}
+            </span>
+          </div>
+        </div>
+        
+        <div class="accordion accordion-flush" id="profileAccordion">
+          <div class="accordion-item bg-transparent">
+            <h3 class="accordion-header">
+              <button class="accordion-button collapsed bg-transparent py-2 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePreview">
+                Detalles de columnas
+              </button>
+            </h3>
+            <div id="collapsePreview" class="accordion-collapse collapse" data-bs-parent="#profileAccordion">
+              <div class="accordion-body px-0 py-2">
+                <ul class="list-unstyled small mb-0">
+                  {% for item in profile.preview_columns %}
+                  <li class="mb-2 pb-2 border-bottom">
+                    <div class="fw-bold">{{ item.column }}</div>
+                    <div class="text-muted">Nulos: {{ item.nulls }} · Muestra: {{ item.sample }}</div>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-top">
+          <h3 class="h6 fw-bold">Anexar Datos</h3>
+          <form method="post" action="{{ url_for('datasets.append_dataset', dataset_id=dataset.id) }}" enctype="multipart/form-data" class="mt-2">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <div class="input-group">
+              <input class="form-control form-control-sm" type="file" name="file" accept=".csv,.xlsx,.xls" required>
+              <button class="btn btn-primary btn-sm px-3">Anexar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-5 stagger-3" id="summaryCards">
+  <div class="col-md-4 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 stat-card">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Total</div>
+        <div id="sumTotal" class="fs-3 fw-bold">0</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 stat-card" style="border-left: 3px solid hsl(var(--success)) !important;">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Geocodificados</div>
+        <div id="sumOk" class="fs-3 fw-bold text-success">0</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 stat-card" style="border-left: 3px solid hsl(var(--danger)) !important;">
+      <div class="card-body">
+        <div class="text-muted small mb-1">A Revisar</div>
+        <div id="sumReview" class="fs-3 fw-bold text-danger">0</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 stat-card" style="border-left: 3px solid hsl(var(--primary)) !important;">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Exportables</div>
+        <div id="sumExport" class="fs-3 fw-bold text-primary">0</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 stat-card" style="border-left: 3px solid hsl(var(--warning)) !important;">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Visitas Requeridas</div>
+        <div id="sumVisits" class="fs-3 fw-bold text-warning">0</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 stat-card" style="border-left: 3px solid hsl(var(--accent)) !important;">
+      <div class="card-body">
+        <div class="text-muted small mb-1">Adeudan</div>
+        <div id="sumDebt" class="fs-3 fw-bold text-dark">0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-5 stagger-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-4 fw-bold">Desglose Territorial</h2>
+        <div id="territorialSummary" class="text-muted py-5 text-center">Procesa el dataset para ver el análisis geográfico.</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-4">
+        <h2 class="h5 mb-4 fw-bold">Actividad Económica</h2>
+        <div id="activitySummary" class="text-muted py-5 text-center">Procesa el dataset para ver el análisis de sectores.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-5 stagger-1">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="h5 mb-0 fw-bold">Vista Previa Procesada</h2>
+      <div class="dropdown">
+        <button class="btn btn-outline-success btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          <i class="bi bi-download me-2"></i>Exportar
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg">
+          <li><a class="dropdown-item" href="{{ url_for('datasets.export_csv', dataset_id=dataset.id) }}">CSV</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('datasets.export_geojson', dataset_id=dataset.id) }}">GeoJSON</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('datasets.export_kml', dataset_id=dataset.id) }}">KML</a></li>
+          <li><a class="dropdown-item" href="{{ url_for('datasets.export_xlsx', dataset_id=dataset.id) }}">Excel</a></li>
+        </ul>
+        <a class="btn btn-primary btn-sm ms-2" href="{{ url_for('dashboard.map_view', dataset_id=dataset.id) }}">
+          <i class="bi bi-map me-2"></i>Mapa Completo
+        </a>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle small" id="previewTable"></table>
+    </div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-lg mb-5 stagger-2 border-top border-warning border-4">
+  <div class="card-body p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+      <div>
+        <h2 class="h5 mb-1 fw-bold">Bandeja de Revisión Manual</h2>
+        <p class="text-muted small mb-0">Corrige coordenadas de registros con baja confianza geocodificadora.</p>
+      </div>
+      <div class="d-flex gap-2 flex-wrap align-items-center">
+        <input id="reviewSearch" class="form-control form-control-sm" style="width:200px" placeholder="Filtrar por nombre/dir">
+        <div class="d-flex align-items-center gap-2">
+          <span class="small text-muted">Confianza <</span>
+          <input id="reviewScore" class="form-control form-control-sm" style="width:60px" type="number" min="0" max="100" value="60">
+        </div>
+        <div class="form-check mb-0">
+          <input class="form-check-input" type="checkbox" id="onlyAnomalies">
+          <label class="form-check-label small" for="onlyAnomalies">Anomalías</label>
+        </div>
+        <button id="loadQueueBtn" class="btn btn-dark btn-sm px-3">Actualizar</button>
+      </div>
+    </div>
+    
+    <div id="queueMeta" class="badge bg-light text-dark mb-3 border">Carga una bandeja para ver resultados.</div>
+    
+    <div class="table-responsive rounded-3 overflow-hidden border">
+      <table class="table table-hover align-middle mb-0" id="reviewTable" style="font-size: 11px;"></table>
+    </div>
+    
+    <div class="d-flex justify-content-between align-items-center mt-4">
+      <div id="saveStatus" class="small text-muted fw-bold"></div>
+      <button id="saveReviewBtn" class="btn btn-warning px-4 fw-bold">
+        <i class="bi bi-check-circle-fill me-2"></i>Guardar Correcciones
+      </button>
+    </div>
+  </div>
+</div>
+
+<div id="appConfig" class="d-none"
+  data-url-data="{{ url_for('datasets.dataset_data', dataset_id=dataset.id) }}"
+  data-url-summary="{{ url_for('datasets.dataset_summary_view', dataset_id=dataset.id) }}"
+  data-url-review-queue="{{ url_for('datasets.review_queue', dataset_id=dataset.id) }}"
+  data-url-process="{{ url_for('datasets.process', dataset_id=dataset.id) }}"
+  data-url-process-async="{{ url_for('datasets.process_async', dataset_id=dataset.id) }}"
+  data-url-reverse="{{ url_for('datasets.reverse_geocode_view', dataset_id=dataset.id) }}"
+  data-url-batch-edit="{{ url_for('datasets.batch_edit', dataset_id=dataset.id) }}"
+  data-url-suggest-territories="{{ url_for('datasets.suggest_territories', dataset_id=dataset.id) }}"
+  data-csrf-token="{{ csrf_token }}"
+></div>
+
+<style>
+  .bg-light-soft { background-color: #fcfcfd; }
+  .stat-card { transition: all 0.3s ease; }
+  .stat-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important; }
+  .table thead th { border-bottom: 2px solid #f0f0f0; background: #fcfcfd; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; color: #666; padding: 12px 10px; }
+  .edit-lat, .edit-lon { border: 1px dashed #ced4da !important; font-family: monospace; font-size: 11px !important; }
+  .edit-lat:focus, .edit-lon:focus { border: 1px solid hsl(var(--primary)) !important; box-shadow: none !important; background: hsla(var(--primary), 0.05); }
+</style>
+
+<script id="review-labels" type="application/json">
+{
+    "status": {
+        "OK": "Geocodificado",
+        "REVIEW": "Dudoso",
+        "MANUAL": "Corregido",
+        "DUPLICATE": "Duplicado",
+        "FAILED": "Fallido"
+    }
+}
+</script>
+<script>
+(function() {
+  const config = document.getElementById('appConfig').dataset;
+  const labels = JSON.parse(document.getElementById('review-labels').textContent);
+  const URLS = {
+    data: config.urlData,
+    summary: config.urlSummary,
+    reviewQueue: config.urlReviewQueue,
+    process: config.urlProcess,
+    processAsync: config.urlProcessAsync,
+    reverse: config.urlReverse,
+    batchEdit: config.urlBatchEdit,
+    suggestTerritories: config.urlSuggestTerritories,
+    jobStatus: function(id) { return '/jobs/' + id + '/status'; }
+  };
+
+  const csrfToken = config.csrfToken;
+  const processBtn = document.getElementById('processBtn');
+  const processAsyncBtn = document.getElementById('processAsyncBtn');
+  const statusBox = document.getElementById('status');
+  const jobStatusBox = document.getElementById('jobStatus');
+  const table = document.getElementById('previewTable');
+  const reviewTable = document.getElementById('reviewTable');
+  const queueMeta = document.getElementById('queueMeta');
+  const territorialSummary = document.getElementById('territorialSummary');
+  const activitySummary = document.getElementById('activitySummary');
+  const manualEdits = new Map();
+  let currentJobTimer = null;
+
+  function renderSummary(summary) {
+    if (!summary) return;
+    document.getElementById('sumTotal').textContent = summary.total || 0;
+    document.getElementById('sumOk').textContent = summary.ok_rows || 0;
+    document.getElementById('sumReview').textContent = summary.review_rows || 0;
+    document.getElementById('sumExport').textContent = summary.exportable_rows || 0;
+    document.getElementById('sumVisits').textContent = summary.visit_summary?.visitas_requeridas || 0;
+    document.getElementById('sumDebt').textContent = summary.visit_summary?.adeudan || 0;
+
+    const territorial = summary.territorial_breakdown || {};
+    territorialSummary.innerHTML = [
+      ['Comunas', territorial.comunas || []], ['Barrios', territorial.barrios || []],
+      ['Corregimientos', territorial.corregimientos || []], ['Veredas', territorial.veredas || []],
+    ].map(([title, items]) => items.length ? `<div class="mb-3 text-start"><div class="fw-bold text-dark small text-uppercase mb-2">${title}</div><ul class="list-unstyled mb-0">${items.slice(0,5).map(item => `<li class="mb-1 p-2 bg-light rounded-2 d-flex justify-content-between align-items-center"><span>${item.territorio}</span><span class="badge bg-primary">${item.empresas}</span></li>`).join('')}</ul></div>` : `<div class="mb-3 text-start text-muted small">Sin datos de ${title}</div>`).join('');
+
+    const activityBreakdown = summary.activity_breakdown || {};
+    const zoneBreakdown = summary.zone_breakdown || {};
+    const visitSummary = summary.visit_summary || {};
+    const activityItems = Object.entries(activityBreakdown).slice(0, 5).map(([key, value]) => `<li class="mb-1 d-flex justify-content-between"><span>${key}</span><span class="fw-bold">${value}</span></li>`).join('');
+    const zoneItems = Object.entries(zoneBreakdown).map(([key, value]) => `<li class="mb-1 d-flex justify-content-between"><span>${key}</span><span class="fw-bold">${value}</span></li>`).join('');
+    activitySummary.innerHTML = `<div class="text-start"><div class="fw-bold small text-uppercase mb-2">Actividades Top</div><ul class="list-unstyled mb-4">${activityItems || '<li>Sin clasificar</li>'}</ul><div class="fw-bold small text-uppercase mb-2">Zonas</div><ul class="list-unstyled mb-0">${zoneItems || '<li>Sin zonificación</li>'}</ul></div>`;
+  }
+
+  function renderTable(rows) {
+    if (!rows || rows.length === 0) { table.innerHTML = '<tbody><tr><td class="text-center py-5 text-muted">Procesa el dataset para generar una vista previa.</td></tr></tbody>'; return; }
+    const keys = Object.keys(rows[0]);
+    table.innerHTML = `<thead><tr>${keys.map(k => `<th>${k}</th>`).join('')}</tr></thead><tbody>${rows.map(r => `<tr>${keys.map(k => `<td>${String(r[k] || '')}</td>`).join('')}</tr>`).join('')}</tbody>`;
+  }
+
+  const STATUS_LABELS = labels.status;
+
+  function renderReviewQueue(rows) {
+    if (!rows || rows.length === 0) { reviewTable.innerHTML = '<tbody><tr><td class="text-center py-5 text-muted">No se encontraron registros que requieran revisión manual con los filtros actuales.</td></tr></tbody>'; return; }
+    const columns = ['row_idx','nom_establec','direccion','estado_geo','geo_score','latitud','longitud'];
+    const head = `<thead><tr>${columns.map(col => `<th>${col}</th>`).join('')}<th class="text-primary">Nueva Latitud</th><th class="text-primary">Nueva Longitud</th></tr></thead>`;
+    const body = rows.map(row => {
+      const key = Number(row.row_idx);
+      const existing = manualEdits.get(key) || {};
+      const scoreColor = row.geo_score < 40 ? 'text-danger' : (row.geo_score < 70 ? 'text-warning' : 'text-success');
+      return `<tr data-row-idx="${key}">
+        <td>${row.row_idx}</td>
+        <td class="fw-bold">${row.nom_establec || '-'}</td>
+        <td>${row.direccion || '-'}</td>
+        <td><span class="badge bg-light text-dark border">${STATUS_LABELS[row.estado_geo] || row.estado_geo || '-'}</span></td>
+        <td class="fw-bold ${scoreColor}">${row.geo_score || '0'}</td>
+        <td class="text-muted">${row.latitud || '-'}</td>
+        <td class="text-muted">${row.longitud || '-'}</td>
+        <td><input class="form-control form-control-sm edit-lat" placeholder="Ej. 6.152" value="${existing.latitud || ''}"></td>
+        <td><input class="form-control form-control-sm edit-lon" placeholder="Ej. -75.371" value="${existing.longitud || ''}"></td>
+      </tr>`;
+    }).join('');
+    reviewTable.innerHTML = head + `<tbody>${body}</tbody>`;
+    reviewTable.querySelectorAll('tr[data-row-idx]').forEach((tr) => {
+      const rowIdx = Number(tr.dataset.rowIdx);
+      const latInput = tr.querySelector('.edit-lat');
+      const lonInput = tr.querySelector('.edit-lon');
+      const sync = () => {
+        if (latInput.value.trim() || lonInput.value.trim()) {
+          manualEdits.set(rowIdx, { row_idx: rowIdx, latitud: latInput.value.trim(), longitud: lonInput.value.trim() });
+          tr.classList.add('table-warning');
+        } else {
+          manualEdits.delete(rowIdx);
+          tr.classList.remove('table-warning');
+        }
+        document.getElementById('saveStatus').textContent = `${manualEdits.size} cambios pendientes de guardar`;
+      };
+      latInput.addEventListener('input', sync); 
+      lonInput.addEventListener('input', sync);
+    });
+  }
+
+  async function loadExisting() {
+    try {
+      const res = await fetch(URLS.data);
+      if (!res.ok) return;
+      const rows = await res.json();
+      renderTable(rows.slice(0, 50));
+      await refreshSummary();
+    } catch (err) { console.error('Error loading data:', err); }
+  }
+
+  async function refreshSummary() {
+    try {
+      const res = await fetch(URLS.summary);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.ok) renderSummary(data.summary);
+    } catch (err) { console.error('Error refreshing summary:', err); }
+  }
+
+  async function loadReviewQueue() {
+    const searchVal = document.getElementById('reviewSearch')?.value || '';
+    const scoreVal = document.getElementById('reviewScore')?.value || '60';
+    const onlyAnom = document.getElementById('onlyAnomalies')?.checked ? '1' : '0';
+    const params = new URLSearchParams({ q: searchVal, min_score: scoreVal, only_anomalies: onlyAnom, limit: '100' });
+    
+    queueMeta.textContent = 'Consultando registros...';
+    try {
+      const res = await fetch(URLS.reviewQueue + `?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok || !data.ok) { queueMeta.textContent = data.error || 'Error en la carga'; return; }
+      queueMeta.textContent = `Se encontraron ${data.count} registros dudosos. Mostrando los primeros 100.`;
+      renderReviewQueue(data.rows);
+    } catch (err) { queueMeta.textContent = 'Error de conexión'; }
+  }
+
+  async function pollJob(jobId) {
+    try {
+      const res = await fetch(URLS.jobStatus(jobId));
+      const data = await res.json();
+      if (!res.ok || !data.ok) { jobStatusBox.textContent = data.error || 'Error consulta'; return; }
+      const job = data.job;
+      jobStatusBox.textContent = `Job #${job.id} (${job.status}): ${job.progress}% · ${job.current_step || ''}`;
+      if (job.status === 'finished') { clearInterval(currentJobTimer); currentJobTimer = null; statusBox.textContent = 'Proceso finalizado.'; statusBox.classList.remove('d-none'); await loadExisting(); }
+      if (job.status === 'failed') { clearInterval(currentJobTimer); currentJobTimer = null; statusBox.textContent = job.error_message || 'Falla en el job'; statusBox.classList.remove('d-none', 'alert-info'); statusBox.classList.add('alert-danger'); }
+    } catch (err) { console.error('Error polling job:', err); }
+  }
+
+  processBtn?.addEventListener('click', async () => {
+    processBtn.disabled = true; statusBox.textContent = 'Procesando en tiempo real (bloqueante)...'; statusBox.classList.remove('d-none');
+    try {
+      const payload = { address_col: document.getElementById('addressCol').value, activity_col: document.getElementById('activityCol').value, api_key: document.getElementById('apiKey').value };
+      const res = await fetch(URLS.process, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error procesando');
+      statusBox.textContent = `Proceso finalizado con éxito.`;
+      renderTable(data.preview); renderSummary(data.summary || {}); 
+    } catch (err) { statusBox.textContent = err.message; statusBox.classList.add('alert-danger'); } finally { processBtn.disabled = false; }
+  });
+
+  processAsyncBtn?.addEventListener('click', async () => {
+    processAsyncBtn.disabled = true; jobStatusBox.textContent = 'Iniciando trabajo asíncrono...';
+    try {
+      const payload = { address_col: document.getElementById('addressCol').value, activity_col: document.getElementById('activityCol').value, api_key: document.getElementById('apiKey').value };
+      const res = await fetch(URLS.processAsync, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify(payload) });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error al encolar');
+      if (currentJobTimer) clearInterval(currentJobTimer);
+      currentJobTimer = setInterval(() => pollJob(data.job_id), 2500);
+      pollJob(data.job_id);
+    } catch (err) { jobStatusBox.textContent = err.message; jobStatusBox.classList.add('text-danger'); } finally { processAsyncBtn.disabled = false; }
+  });
+
+  document.getElementById('loadQueueBtn')?.addEventListener('click', loadReviewQueue);
+
+  document.getElementById('reverseBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('reverseBtn'); 
+    btn.disabled = true; statusBox.textContent = 'Geocodificación inversa iniciada...'; statusBox.classList.remove('d-none');
+    try {
+      const res = await fetch(URLS.reverse, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, 
+        body: JSON.stringify({ api_key: document.getElementById('apiKey').value }) 
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error');
+      statusBox.textContent = 'Geocodificación inversa completada.'; 
+      renderTable(data.preview || []); 
+      if (data.summary) renderSummary(data.summary);
+    } catch (err) { statusBox.textContent = 'Error: ' + err.message; } finally { btn.disabled = false; }
+  });
+
+  document.getElementById('suggestTerritoriesBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('suggestTerritoriesBtn');
+    btn.disabled = true; statusBox.textContent = 'Enriquecimiento territorial iniciado...'; statusBox.classList.remove('d-none');
+    try {
+      const res = await fetch(URLS.suggestTerritories, { method: 'POST', headers: { 'X-CSRF-Token': csrfToken } });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error');
+      statusBox.textContent = 'Enriquecimiento territorial completado con éxito.';
+      renderTable(data.preview || []);
+      if (data.summary) renderSummary(data.summary);
+    } catch (err) { statusBox.textContent = 'Error: ' + err.message; } finally { btn.disabled = false; }
+  });
+
+  document.getElementById('saveReviewBtn')?.addEventListener('click', async () => {
+    const rows = [...manualEdits.values()].filter(item => item.latitud !== '' || item.longitud !== '');
+    if (!rows.length) { document.getElementById('saveStatus').textContent = 'No hay cambios para guardar.'; return; }
+    document.getElementById('saveReviewBtn').disabled = true;
+    try {
+      const res = await fetch(URLS.batchEdit, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, body: JSON.stringify({ rows, reason: 'revision_manual_ui' }) });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Error al guardar');
+      document.getElementById('saveStatus').textContent = `✓ ${rows.length} registros actualizados correctamente.`; 
+      manualEdits.clear(); renderSummary(data.summary || {}); await loadExisting();
+      setTimeout(() => { document.getElementById('saveStatus').textContent = ''; }, 5000);
+    } catch (err) { document.getElementById('saveStatus').textContent = 'Error: ' + err.message; } finally { document.getElementById('saveReviewBtn').disabled = false; }
+  });
+
+  loadExisting();
+})();
+</script>
+{% endblock %}

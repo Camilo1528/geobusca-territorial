@@ -1,0 +1,147 @@
+
+{% extends 'base.html' %}
+{% block title %}Agenda diaria{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+#agendaMap{height:420px;border-radius:.75rem;} #supervisorMiniMap{height:260px;border-radius:.75rem;} .agenda-legend{font-size:.85rem}.alert-chip{font-size:.75rem}.sync-item{border:1px solid #dee2e6;border-radius:.75rem;padding:.75rem;background:#fff}.sla-chip{font-size:.75rem}
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">Agenda y ruteo diario</h1>
+    <div class="text-muted small">{{ target_user.full_name if target_user else '' }} · {{ agenda_date }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <form class="d-flex gap-2 flex-wrap" method="get">
+      {% if current_user and current_user.role in ['revisor','admin'] %}
+      <select class="form-select" name="user_id" style="min-width:260px">{% for u in all_users %}<option value="{{ u.id }}" {% if selected_user_id == u.id %}selected{% endif %}>{{ u.full_name or u.email }} · {{ u.role }}</option>{% endfor %}</select>
+      {% endif %}
+      <input class="form-control" type="date" name="agenda_date" value="{{ agenda_date }}">
+      <button class="btn btn-primary">Ver</button>
+    </form>
+    <form method="post" action="{{ url_for('close_day') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="user_id" value="{{ selected_user_id }}">
+      <input type="hidden" name="agenda_date" value="{{ agenda_date }}">
+      <button class="btn btn-outline-dark">Cerrar jornada y resumir</button>
+    </form>
+  </div>
+</div>
+<div class="alert alert-secondary small d-flex justify-content-between align-items-center flex-wrap gap-2" id="agendaOfflineStatusBar">
+  <div><strong>Sincronización agenda:</strong> <span id="agendaNetworkStatus" class="badge text-bg-success">En línea</span> <span class="ms-2">Pendientes: <strong id="agendaOfflineQueueCount">0</strong></span></div>
+  <button type="button" class="btn btn-outline-primary btn-sm" id="syncAgendaBtn">Sincronizar agenda</button>
+</div>
+<div class="card shadow-sm mb-3"><div class="card-body"><div class="d-flex justify-content-between align-items-center mb-2"><div><h2 class="h6 mb-0">Cola offline de agenda</h2><div class="text-muted small">Check-in, check-out y actualizaciones pendientes por sincronizar.</div></div></div><div id="agendaOfflineQueueList" class="d-grid gap-2"></div></div></div>
+<div class="row g-3 mb-4">
+  {% for label, value in [('Total agenda', metrics.total), ('Pendientes', metrics.pendientes), ('Cumplidas', metrics.cumplidas), ('No efectivas', metrics.no_efectivas), ('Con deuda', metrics.con_deuda), ('Aprobadas', metrics.aprobadas), ('Ruta km', metrics.ruta_km), ('Ruta min', metrics.ruta_minutos or '—'), ('Territorios', metrics.territorios), ('Proveedor', metrics.proveedor_ruta), ('En alerta', metrics.en_alerta), ('SLA ok', metrics.sla_ok), ('SLA vencido', metrics.sla_vencido)] %}
+  <div class="col-md-3 col-xl-2"><div class="card shadow-sm"><div class="card-body"><div class="text-muted small">{{ label }}</div><div class="display-6 fw-semibold">{{ value }}</div></div></div></div>
+  {% endfor %}
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-7">
+    <div class="card shadow-sm h-100"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <div><h2 class="h5 mb-0">Mapa de agenda diaria</h2><div class="text-muted agenda-legend">Ruta sugerida y paradas del funcionario.</div></div>
+        <form method="post" class="d-flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="action" value="optimize"><button class="btn btn-outline-primary">Optimizar ruta del día</button></form>
+      </div>
+      <div id="agendaMap"></div>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm h-100"><div class="card-body"><h2 class="h5">Resumen de ruta</h2><ul class="list-group list-group-flush small" id="routeSummaryList"><li class="list-group-item px-0 text-muted">Cargando mapa y ruta...</li></ul><hr><h3 class="h6 mt-3">Última posición</h3><div id="supervisorMiniMap"></div></div></div>
+  </div>
+</div>
+<div class="card shadow-sm"><div class="card-body"><div class="table-responsive"><table class="table table-sm align-middle">
+<thead><tr><th>Orden</th><th>Ruta</th><th>Horario</th><th>Nombre</th><th>Territorio</th><th>Estado</th><th>SLA</th><th>Alertas</th><th>Acciones campo</th><th>Actualizar</th><th></th></tr></thead>
+<tbody>
+{% for item in items %}
+<tr>
+<td>{{ item.agenda_order or loop.index }}</td>
+<td><div>#{{ item.optimized_order or '—' }}</div><div class="small text-muted">{{ item.route_group or '—' }}</div></td>
+<td><div class="small">{{ item.schedule_start_time or '—' }} - {{ item.schedule_end_time or '—' }}</div><div class="text-muted small">{{ item.estimated_service_minutes or '—' }} min</div></td>
+<td><div class="fw-semibold">{{ item.rvt_razon_social or item.nom_establec or 'Sin nombre' }}</div><div class="small text-muted">{{ item.rvt_direccion_establecimiento or item.direccion or 'Sin dirección' }}</div></td>
+<td>{{ item.territorio_principal_nombre or item.barrio or item.vereda or item.comuna or item.corregimiento }}</td>
+<td><span class="badge text-bg-{{ 'success' if (item.completion_status or 'pending') == 'completed' else 'warning' if (item.completion_status or 'pending') in ['in_progress','started'] else 'secondary' if (item.completion_status or 'pending') == 'pending' else 'danger' }}">{{ completion_labels.get(item.completion_status or 'pending', item.completion_status or 'Pendiente') }}</span><div class="small text-muted mt-1">{{ item.checkin_at or '' }} {{ item.checkout_at or '' }}</div></td>
+<td>{% set sla = item.sla_status or 'no_schedule' %}<span class="badge sla-chip text-bg-{{ 'success' if sla == 'met' else 'danger' if sla == 'breached' else 'warning' if sla in ['open','active'] else 'secondary' }}">{{ sla_labels.get(sla, sla) }}</span><div class="small text-muted">{{ item.sla_message or '' }}</div></td><td>{% if item.live_alert_status == 'late' %}<span class="badge text-bg-danger alert-chip">Atraso</span><div class="small text-danger">{{ item.live_alert_message }}</div>{% else %}<span class="badge text-bg-success alert-chip">Sin alerta</span>{% endif %}</td>
+<td><div class="d-grid gap-2"><button type="button" class="btn btn-outline-primary btn-sm gps-action-btn" data-action="checkin" data-dataset="{{ item.dataset_id }}" data-row="{{ item.row_idx }}">Check-in GPS</button><button type="button" class="btn btn-outline-success btn-sm gps-action-btn" data-action="checkout" data-dataset="{{ item.dataset_id }}" data-row="{{ item.row_idx }}">Check-out GPS</button></div></td>
+<td>
+<form method="post" class="d-flex flex-column gap-1 progress-form">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="action" value="progress"><input type="hidden" name="dataset_id" value="{{ item.dataset_id }}"><input type="hidden" name="row_idx" value="{{ item.row_idx }}"><input type="hidden" name="gps_latitude"><input type="hidden" name="gps_longitude"><input type="hidden" name="gps_accuracy">
+<select class="form-select form-select-sm status-select" name="completion_status">{% for value,label in [('pending','Pendiente'),('in_progress','En ruta'),('completed','Completada'),('no_effective','No efectiva')] %}<option value="{{ value }}" {% if (item.completion_status or 'pending') == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+<select class="form-select form-select-sm reason-select" name="completion_reason_code" data-current="{{ item.completion_reason_code or '' }}"></select>
+<input class="form-control form-control-sm notes-input" name="completion_notes" placeholder="Observación" value="{{ item.completion_notes or '' }}">
+<button class="btn btn-outline-success btn-sm">Actualizar</button>
+<div class="form-text">Para causales no efectivas se exige observación y evidencia si aplica.</div>
+</form>
+</td>
+<td><a class="btn btn-outline-primary btn-sm" href="{{ url_for('visits_view', dataset_id=item.dataset_id) }}?q={{ item.rvt_razon_social or item.nom_establec or '' }}">Abrir visita</a></td>
+</tr>
+{% else %}<tr><td colspan="11" class="text-muted">No hay visitas asignadas para este día.</td></tr>{% endfor %}
+</tbody></table></div></div></div>
+<form id="gpsActionForm" method="post" class="d-none">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}"><input type="hidden" name="action" id="gpsActionType"><input type="hidden" name="dataset_id" id="gpsActionDataset"><input type="hidden" name="row_idx" id="gpsActionRow"><input type="hidden" name="gps_latitude" id="gpsActionLat"><input type="hidden" name="gps_longitude" id="gpsActionLon"><input type="hidden" name="gps_accuracy" id="gpsActionAcc"><input type="hidden" name="completion_notes" value="">
+</form>
+{% endblock %}
+{% block extra_scripts %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div id="agendaConfig" class="d-none"
+  data-url-route-data="{{ url_for('agenda_route_data') }}"
+  data-url-live-data="{{ url_for('supervision_live_data') }}"
+  data-url-api-action="{{ url_for('api_agenda_action') }}"
+  data-selected-user-id="{{ selected_user_id }}"
+  data-agenda-date="{{ agenda_date }}"
+  data-queue-key="geobusca-agenda-offline-{{ selected_user_id }}-{{ agenda_date }}"
+></div>
+<script id="agenda-reasons" type="application/json">
+{{ completion_reason_options|tojson|safe }}
+</script>
+<script>
+const config = document.getElementById('agendaConfig').dataset;
+const COMPLETION_REASON_OPTIONS = JSON.parse(document.getElementById('agenda-reasons').textContent);
+function hydrateReasonSelect(select, status, currentValue) {
+  const options = COMPLETION_REASON_OPTIONS[status] || COMPLETION_REASON_OPTIONS.pending || [];
+  select.innerHTML = '';
+  options.forEach(([value, label]) => {
+    const opt = document.createElement('option'); opt.value = value; opt.textContent = label; if (value === currentValue) opt.selected = true; select.appendChild(opt);
+  });
+}
+document.querySelectorAll('.progress-form').forEach(form => {
+  const statusSelect = form.querySelector('.status-select'); const reasonSelect = form.querySelector('.reason-select'); const notesInput = form.querySelector('.notes-input');
+  hydrateReasonSelect(reasonSelect, statusSelect.value, reasonSelect.dataset.current || '');
+  statusSelect.addEventListener('change', () => hydrateReasonSelect(reasonSelect, statusSelect.value, ''));
+  form.addEventListener('submit', (event) => { if (statusSelect.value === 'no_effective' && !notesInput.value.trim()) { event.preventDefault(); alert('Debes escribir una observación al marcar una visita no efectiva.'); notesInput.focus(); } });
+});
+const agendaQueueKey = config.queueKey;
+function getAgendaQueue(){ try { return JSON.parse(localStorage.getItem(agendaQueueKey) || '[]'); } catch(_) { return []; } }
+function setAgendaQueue(items){ localStorage.setItem(agendaQueueKey, JSON.stringify(items)); renderAgendaQueue(); updateAgendaOfflineStatus(); }
+function updateAgendaOfflineStatus(){ const online = navigator.onLine; const badge=document.getElementById('agendaNetworkStatus'); const count=document.getElementById('agendaOfflineQueueCount'); const queue=getAgendaQueue(); badge.textContent = online ? 'En línea' : 'Sin conexión'; badge.className = `badge ${online ? 'text-bg-success' : 'text-bg-warning'}`; count.textContent = queue.length; }
+function renderAgendaQueue(){ const root=document.getElementById('agendaOfflineQueueList'); if(!root) return; const queue=getAgendaQueue(); if(!queue.length){ root.innerHTML='<div class="text-muted small">No hay acciones offline pendientes.</div>'; return; } root.innerHTML = queue.map((item, index)=>`<div class="sync-item"><div class="d-flex justify-content-between gap-2 flex-wrap"><div><div class="fw-semibold">${item.action} · fila ${item.row_idx}</div><div class="small text-muted">${item.queued_at || ''}</div>${item.last_error ? `<div class="small text-danger">${item.last_error}</div>` : ''}</div><div class="d-flex gap-2"><button type="button" class="btn btn-outline-primary btn-sm retry-agenda-item" data-index="${index}">Reintentar</button><button type="button" class="btn btn-outline-danger btn-sm remove-agenda-item" data-index="${index}">Quitar</button></div></div></div>`).join(''); }
+async function syncAgendaItem(item, index){ const queue=getAgendaQueue(); try { const resp = await fetch(config.urlApiAction, {method:'POST', headers:{'Content-Type':'application/json'}, credentials:'same-origin', body: JSON.stringify(item)}); const data = await resp.json(); if(!resp.ok || !data.ok){ throw new Error(data.error || 'No se pudo sincronizar'); } queue.splice(index,1); setAgendaQueue(queue); return true; } catch(err){ queue[index] = {...item, last_error: err.message || 'Error'}; setAgendaQueue(queue); return false; } }
+async function syncAgendaQueue(){ if(!navigator.onLine) return; const queue=[...getAgendaQueue()]; for(let i=0;i<queue.length;i+=1){ await syncAgendaItem(queue[i], i); } }
+function queueAgendaAction(item){ const queue=getAgendaQueue(); queue.push({...item, queued_at:new Date().toISOString(), last_error:''}); setAgendaQueue(queue); }
+async function captureGpsAction(btn){ if (!navigator.geolocation) { alert('Este dispositivo no soporta GPS.'); return; } btn.disabled = true; navigator.geolocation.getCurrentPosition(async (position) => { const payload = { action: btn.dataset.action, dataset_id: Number(btn.dataset.dataset), row_idx: Number(btn.dataset.row), gps_latitude: position.coords.latitude.toFixed(6), gps_longitude: position.coords.longitude.toFixed(6), gps_accuracy: Math.round(position.coords.accuracy || 0), completion_notes: '' }; if (!navigator.onLine) { queueAgendaAction(payload); btn.disabled = false; alert('Acción guardada offline.'); return; } document.getElementById('gpsActionType').value = payload.action; document.getElementById('gpsActionDataset').value = payload.dataset_id; document.getElementById('gpsActionRow').value = payload.row_idx; document.getElementById('gpsActionLat').value = payload.gps_latitude; document.getElementById('gpsActionLon').value = payload.gps_longitude; document.getElementById('gpsActionAcc').value = payload.gps_accuracy; document.getElementById('gpsActionForm').submit(); }, (err) => { btn.disabled = false; alert('No se pudo capturar el GPS: ' + err.message); }, {enableHighAccuracy:true, timeout:15000, maximumAge:0}); }
+document.querySelectorAll('.gps-action-btn').forEach(btn => btn.addEventListener('click', () => captureGpsAction(btn)));
+document.querySelectorAll('.progress-form').forEach(form => { const originalHandler = form.onsubmit; form.addEventListener('submit', (event) => { if (navigator.onLine) return; event.preventDefault(); const fd = new FormData(form); queueAgendaAction({ action: 'progress', dataset_id: Number(fd.get('dataset_id')), row_idx: Number(fd.get('row_idx')), completion_status: String(fd.get('completion_status') || ''), completion_reason_code: String(fd.get('completion_reason_code') || ''), completion_notes: String(fd.get('completion_notes') || '') }); alert('Actualización guardada offline.'); }); });
+document.getElementById('syncAgendaBtn').addEventListener('click', syncAgendaQueue);
+document.getElementById('agendaOfflineQueueList').addEventListener('click', async (event) => { const retry = event.target.closest('.retry-agenda-item'); const remove = event.target.closest('.remove-agenda-item'); const queue=getAgendaQueue(); if(retry && queue[Number(retry.dataset.index)]){ await syncAgendaItem(queue[Number(retry.dataset.index)], Number(retry.dataset.index)); } if(remove){ queue.splice(Number(remove.dataset.index),1); setAgendaQueue(queue); } });
+window.addEventListener('online', () => { updateAgendaOfflineStatus(); syncAgendaQueue(); });
+window.addEventListener('offline', updateAgendaOfflineStatus);
+updateAgendaOfflineStatus(); renderAgendaQueue();
+(function(){
+  const map = L.map('agendaMap').setView([6.1530, -75.3742], 12); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution:'&copy; OpenStreetMap'}).addTo(map);
+  fetch(`${config.urlRouteData}?user_id=${config.selectedUserId}&agenda_date=${config.agendaDate}`).then(r => r.json()).then(data => {
+    const summary = document.getElementById('routeSummaryList'); summary.innerHTML = ''; if (!data.ok) { summary.innerHTML = '<li class="list-group-item px-0 text-danger">No fue posible cargar la ruta.</li>'; return; }
+    const routeGeom = data.route_geometry; if (routeGeom && routeGeom.type === 'LineString') { const latlngs = routeGeom.coordinates.map(c => [c[1], c[0]]); const poly = L.polyline(latlngs, {color:'#0d6efd', weight:5}).addTo(map); map.fitBounds(poly.getBounds(), {padding:[20,20]}); }
+    const features = (data.stops_geojson && data.stops_geojson.features) || []; const markerBounds = [];
+    features.forEach(feature => { const coords = feature.geometry.coordinates; const props = feature.properties || {}; markerBounds.push([coords[1], coords[0]]); L.marker([coords[1], coords[0]]).addTo(map).bindPopup(`<strong>#${props.order} ${props.name || 'Sin nombre'}</strong><br>${props.address || ''}<br><span class="text-muted">${props.territory || ''}</span>`); });
+    if (!routeGeom && markerBounds.length) map.fitBounds(markerBounds, {padding:[20,20]});
+    [['Proveedor', data.provider || 'none'], ['Método', data.method || 'none'], ['Distancia estimada', `${data.total_km || 0} km`], ['Tiempo estimado', data.total_minutes ? `${data.total_minutes} min` : '—'], ['Paradas con coordenadas', features.length], ['Paradas sin coordenadas', data.missing_count || 0]].forEach(([label, value]) => { const li = document.createElement('li'); li.className = 'list-group-item px-0 d-flex justify-content-between'; li.innerHTML = `<span class="text-muted">${label}</span><strong>${value}</strong>`; summary.appendChild(li); });
+  }).catch(() => { document.getElementById('routeSummaryList').innerHTML = '<li class="list-group-item px-0 text-danger">Error cargando el mapa de agenda.</li>'; });
+})();
+
+const miniMap = L.map('supervisorMiniMap').setView([6.1530, -75.3742], 12); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom: 19, attribution:'&copy; OpenStreetMap'}).addTo(miniMap);
+fetch(`${config.urlLiveData}?agenda_date=${config.agendaDate}`).then(r=>r.json()).then(data=>{ const staff = (data.positions||[]).find(p => Number(p.user_id) === Number(config.selectedUserId)); if(staff){ const marker=L.marker([staff.latitude, staff.longitude]).addTo(miniMap).bindPopup(`<strong>${staff.name}</strong><br>${staff.item_name || ''}<br>${staff.territory || ''}<br>${staff.timestamp || ''}`); miniMap.setView([staff.latitude, staff.longitude], 15); marker.openPopup(); } }).catch(()=>{});
+</script>
+{% endblock %}

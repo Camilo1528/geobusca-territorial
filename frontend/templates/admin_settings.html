@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% block title %}Configuración de Marca{% endblock %}
+
+{% block content %}
+<div class="container animate-in">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center gap-3 mb-4">
+                <div class="bg-primary text-white rounded-4 p-3 d-flex align-items-center justify-content-center shadow-sm">
+                    <i class="bi bi-palette fs-2"></i>
+                </div>
+                <div>
+                    <h1 class="h3 mb-0 fw-bold">Personalización del Sistema</h1>
+                    <p class="text-muted mb-0">Configura la identidad visual de tu plataforma GeoSaaS.</p>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden mb-4">
+                <div class="card-header bg-white border-0 pt-4 px-4">
+                    <h2 class="h5 fw-bold mb-0">Identidad Corporativa</h2>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" action="{{ url_for('admin.admin_settings') }}" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        
+                        <div class="row g-4">
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small text-uppercase">Nombre de la Aplicación</label>
+                                <input type="text" name="brand_name" class="form-control rounded-3" value="{{ settings.brand_name }}" required>
+                                <div class="form-text">Ej: GeoBusca Territorial, Catastro Municipal.</div>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small text-uppercase">Subtítulo / Entidad</label>
+                                <input type="text" name="brand_subtitle" class="form-control rounded-3" value="{{ settings.brand_subtitle }}" required>
+                                <div class="form-text">Ej: Municipio de Rionegro, Secretaría de Hacienda.</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold small text-uppercase">Color Primario</label>
+                                <div class="d-flex gap-3 align-items-center">
+                                    <input type="color" name="primary_color" class="form-control form-control-color border-0 p-0" style="width: 60px; height: 60px;" value="{{ settings.primary_color }}" required>
+                                    <div>
+                                        <code class="d-block mb-1">{{ settings.primary_color }}</code>
+                                        <span class="small text-muted">Este color se aplicará a botones, enlaces y elementos destacados.</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold small text-uppercase">Logo Institucional (SVG o WebP)</label>
+                                <div class="d-flex align-items-center gap-4 p-3 bg-light rounded-4">
+                                    <div class="bg-white p-2 rounded-3 shadow-sm d-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                        <img src="{{ url_for('static', filename='img/' + (settings.brand_logo or 'rionegro_logo.svg')) }}" alt="Logo Actual" style="max-height: 60px; max-width: 60px;">
+                                    </div>
+                                    <div class="flex-grow-1">
+                                        <input type="file" name="brand_logo" class="form-control" accept=".svg,.webp">
+                                        <div class="form-text mt-2 small text-muted">
+                                            Formatos soportados: <strong>SVG</strong> (recomendado) y <strong>WebP</strong>.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-12 pt-4 border-top">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{{ url_for('admin.manager_dashboard') }}" class="btn btn-light px-4 rounded-pill">Cancelar</a>
+                                    <button type="submit" class="btn btn-primary px-5 rounded-pill fw-bold shadow-sm">
+                                        <i class="bi bi-save me-2"></i>Guardar Cambios
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card border-0 bg-light rounded-4">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <i class="bi bi-info-circle text-primary fs-3"></i>
+                    <div class="small">
+                        <strong>Nota:</strong> Los cambios se aplican globalmente y en tiempo real para todos los usuarios. El logo actual se carga desde el sistema de archivos del servidor por seguridad.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-control-color { border-radius: 12px; overflow: hidden; }
+    .form-control:focus { border-color: var(--primary-color); box-shadow: 0 0 0 0.25rem hsla(var(--primary-color-h, 0), var(--primary-color-s, 100%), var(--primary-color-l, 50%), 0.1); }
+</style>
+{% endblock %}

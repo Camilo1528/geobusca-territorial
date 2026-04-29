@@ -1,0 +1,9 @@
+<svg width="100" height="100" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Escudo estilizado -->
+  <path d="M10 20C10 10 90 10 90 20V60C90 80 50 95 50 95C50 95 10 80 10 60V20Z" fill="#C1121F"/>
+  <path d="M50 15V95" stroke="white" stroke-width="4"/>
+  <path d="M10 40H90" stroke="white" stroke-width="4"/>
+  <!-- Estrella o sol en el centro -->
+  <circle cx="50" cy="40" r="10" fill="white"/>
+  <path d="M50 25V55M35 40H65" stroke="#C1121F" stroke-width="2"/>
+</svg>

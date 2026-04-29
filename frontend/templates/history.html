@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block title %}Comparación Histórica{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5 animate-in">
+  <div>
+    <h1 class="h3 mb-1 fw-bold">Análisis Comparativo</h1>
+    <div class="text-muted d-flex align-items-center gap-2">
+      <i class="bi bi-clock-history text-primary"></i>
+      Dataset {{ dataset.id }}{% if previous %} vs {{ previous.id }}{% endif %} · {{ dataset.city }}, {{ dataset.region }}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-primary" href="{{ url_for('datasets.review', dataset_id=dataset.id) }}">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </a>
+  </div>
+</div>
+
+{% if not comparison %}
+<div class="alert alert-info border-0 shadow-sm p-4 d-flex align-items-center gap-3 animate-in">
+  <div class="fs-2"><i class="bi bi-info-circle"></i></div>
+  <div>No se ha encontrado un dataset previo comparable para esta región. Sube un dataset anterior para habilitar el análisis histórico.</div>
+</div>
+{% else %}
+<div class="row g-4 mb-5 stagger-1">
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="text-muted small mb-2 text-uppercase tracking-wider">Total Actual</div>
+      <div class="fs-3 fw-bold">{{ "{:,}".format(comparison.actual_total) }}</div>
+      <div class="small text-muted mt-2">Registros vigentes</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="text-muted small mb-2 text-uppercase tracking-wider">Total Anterior</div>
+      <div class="fs-3 fw-bold">{{ "{:,}".format(comparison.anterior_total) }}</div>
+      <div class="small text-muted mt-2">Cierre previo</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100">
+      <div class="text-muted small mb-2 text-uppercase tracking-wider">Variación Neta</div>
+      <div class="d-flex align-items-baseline gap-2">
+        <div class="fs-3 fw-bold {{ 'text-success' if comparison.delta_total >= 0 else 'text-danger' }}">
+          {{ "+" if comparison.delta_total > 0 }}{{ comparison.delta_total }}
+        </div>
+        <i class="bi {{ 'bi-graph-up-arrow text-success' if comparison.delta_total >= 0 else 'bi-graph-down-arrow text-danger' }}"></i>
+      </div>
+      <div class="small text-muted mt-2">Diferencia de registros</div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card border-0 shadow-sm p-4 h-100 bg-primary text-white">
+      <div class="opacity-75 small mb-2 text-uppercase tracking-wider">Nuevos Detectados</div>
+      <div class="fs-3 fw-bold">{{ comparison.nuevos_establecimientos }}</div>
+      <div class="small opacity-75 mt-2">Capturados recientemente</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-5 mb-5 stagger-2">
+  {% for key, rows in comparison.territorial_changes.items() %}
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-2 mb-4">
+          <div class="bg-primary-subtle p-2 rounded-3 text-primary">
+            <i class="bi bi-map"></i>
+          </div>
+          <h2 class="h5 mb-0 fw-bold text-capitalize">Cambios por {{ key }}</h2>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle small">
+            <thead class="table-light">
+              <tr>
+                <th>Territorio</th>
+                <th class="text-end">Anterior</th>
+                <th class="text-end">Actual</th>
+                <th class="text-end">Delta</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td class="fw-semibold">{{ row.territorio }}</td>
+                <td class="text-end text-muted">{{ row.anterior }}</td>
+                <td class="text-end fw-bold">{{ row.actual }}</td>
+                <td class="text-end fw-bold {{ 'text-success' if row.delta >= 0 else 'text-danger' }}">
+                  {{ "+" if row.delta > 0 }}{{ row.delta }}
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="4" class="text-center py-4 text-muted">No hay variaciones en esta categoría.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="row g-4 stagger-3">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm p-4 bg-light">
+      <h3 class="h6 fw-bold mb-4 d-flex align-items-center gap-2">
+        <i class="bi bi-calendar-check text-primary"></i>
+        Métricas de Campo (Actual)
+      </h3>
+      <div class="row g-3">
+        <div class="col-4 text-center">
+          <div class="text-muted small">Visitas</div>
+          <div class="fw-bold fs-5">{{ comparison.current_visits.visitas_realizadas }}</div>
+        </div>
+        <div class="col-4 text-center">
+          <div class="text-muted small">Requeridas</div>
+          <div class="fw-bold fs-5">{{ comparison.current_visits.visitas_requeridas }}</div>
+        </div>
+        <div class="col-4 text-center">
+          <div class="text-muted small text-danger">Deuda</div>
+          <div class="fw-bold fs-5 text-danger">{{ comparison.current_visits.adeudan }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm p-4 bg-light">
+      <h3 class="h6 fw-bold mb-4 d-flex align-items-center gap-2 text-muted">
+        <i class="bi bi-calendar-x"></i>
+        Métricas de Campo (Anterior)
+      </h3>
+      <div class="row g-3">
+        <div class="col-4 text-center">
+          <div class="text-muted small">Visitas</div>
+          <div class="fw-bold fs-5 text-muted">{{ comparison.previous_visits.visitas_realizadas }}</div>
+        </div>
+        <div class="col-4 text-center">
+          <div class="text-muted small">Requeridas</div>
+          <div class="fw-bold fs-5 text-muted">{{ comparison.previous_visits.visitas_requeridas }}</div>
+        </div>
+        <div class="col-4 text-center">
+          <div class="text-muted small">Deuda</div>
+          <div class="fw-bold fs-5 text-muted">{{ comparison.previous_visits.adeudan }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

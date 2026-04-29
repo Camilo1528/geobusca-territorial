@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block title %}Gestión de API Keys{% endblock %}
+
+{% block content %}
+<div class="container-fluid animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 fw-bold">Integraciones Externas</h1>
+            <p class="text-muted">Gestiona las llaves de acceso para sistemas externos.</p>
+        </div>
+        <button type="button" class="btn btn-primary rounded-3 px-4 shadow-sm" data-bs-toggle="modal" data-bs-target="#createKeyModal">
+            <i class="bi bi-plus-lg me-2"></i>Nueva Llave
+        </button>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show rounded-3 shadow-sm border-0 mb-4" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Nombre de la Llave</th>
+                        <th>Creador</th>
+                        <th>Prefijo</th>
+                        <th>Estado</th>
+                        <th>Último Uso</th>
+                        <th>Fecha Creación</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for key in keys %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold">{{ key.key_name }}</div>
+                        </td>
+                        <td>{{ key.creator_name }}</td>
+                        <td><code>{{ key.api_key[:10] }}...</code></td>
+                        <td>
+                            {% if key.is_active %}
+                                <span class="badge bg-success bg-opacity-10 text-success rounded-pill px-3">Activa</span>
+                            {% else %}
+                                <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3">Revocada</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-muted small">
+                            {{ key.last_used_at or 'Nunca' }}
+                        </td>
+                        <td class="text-muted small">
+                            {{ key.created_at }}
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if key.is_active %}
+                            <form method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de revocar esta llave? Esta acción no se puede deshacer.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <input type="hidden" name="action" value="revoke">
+                                <input type="hidden" name="key_id" value="{{ key.id }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+                                    Revocar
+                                </button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="bi bi-key fs-1 d-block mb-3 opacity-25"></i>
+                            No hay llaves API creadas aún.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Llave -->
+<div class="modal fade" id="createKeyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow rounded-4">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">Nueva Llave de API</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST">
+                <div class="modal-body p-4">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <input type="hidden" name="action" value="create">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary fw-semibold">Nombre Descriptivo</label>
+                        <input type="text" name="key_name" class="form-control rounded-3" placeholder="Ej: Power BI Municipio" required>
+                        <div class="form-text mt-2 small">Usa un nombre que identifique para qué sistema es esta llave.</div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 shadow-sm">Generar Llave</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

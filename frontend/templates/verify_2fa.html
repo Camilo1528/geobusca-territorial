@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+{% block title %}Verificación de Seguridad{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center align-items-center min-vh-75 animate-in">
+    <div class="col-md-5">
+        <div class="card border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-3" style="width: 80px; height: 80px;">
+                        <i class="bi bi-shield-lock-fill fs-1"></i>
+                    </div>
+                    <h2 class="fw-bold h4">Verificación de Seguridad</h2>
+                    <p class="text-muted">Hemos enviado un código de 6 dígitos a tu correo electrónico registrado.</p>
+                </div>
+
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                  {% if messages %}
+                    {% for category, message in messages %}
+                      <div class="alert alert-{{ category }} rounded-3 mb-4 animate-in">{{ message }}</div>
+                    {% endfor %}
+                  {% endif %}
+                {% endwith %}
+
+                <form method="POST" class="stagger-1">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    
+                    <div class="mb-4">
+                        <label for="otp_code" class="form-label fw-semibold text-secondary">Código de Verificación</label>
+                        <input type="text" 
+                               name="otp_code" 
+                               id="otp_code" 
+                               class="form-control form-control-lg text-center fw-bold letter-spacing-lg rounded-3 border-2" 
+                               placeholder="000000" 
+                               maxlength="6" 
+                               required 
+                               autofocus>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 rounded-3 fw-bold py-3 shadow-sm hover-up">
+                        Verificar Identidad
+                    </button>
+                </form>
+
+                <div class="mt-4 text-center">
+                    <p class="small text-muted mb-0">¿No recibiste el código?</p>
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-link btn-sm text-decoration-none">Volver al inicio</a>
+                </div>
+            </div>
+        </div>
+        
+        <p class="text-center mt-4 text-muted small">
+            &copy; {{ now_iso()[:4] }} GeoBusca Territorial - Seguridad Avanzada
+        </p>
+    </div>
+</div>
+
+<style>
+    .letter-spacing-lg {
+        letter-spacing: 0.5rem;
+    }
+    .min-vh-75 {
+        min-height: 75vh;
+    }
+    .hover-up {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-up:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Tablero gerencial
+<div class="card shadow-sm my-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h5 mb-0">Productividad diaria</h2>
+        <div class="text-muted small">Seguimiento por funcionario y territorio para la agenda del día seleccionado.</div>
+      </div>
+      <form method="get" class="d-flex gap-2 align-items-end">
+        <div><label class="form-label small">Fecha</label><input class="form-control" type="date" name="productivity_date" value="{{ productivity_date }}"></div>
+        <div><button class="btn btn-primary">Ver</button></div>
+      </form>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Funcionario</th><th>Rol</th><th>Asignadas</th><th>Completadas</th><th>Pendientes</th><th>No efectivas</th><th>% cumplimiento</th><th>Top territorios</th><th>Km</th></tr></thead>
+            <tbody>
+              {% for item in productivity.staff %}
+              <tr><td>{{ item.name }}</td><td>{{ item.role }}</td><td>{{ item.assigned }}</td><td>{{ item.completed }}</td><td>{{ item.pending }}</td><td>{{ item.no_efectiva }}</td><td>{{ item.compliance }}%</td><td>{{ item.territories or '—' }}</td><td>{{ item.km }}</td></tr>
+              {% else %}
+              <tr><td colspan="9" class="text-muted">Sin agenda para la fecha seleccionada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Territorio</th><th>Asignadas</th><th>Completadas</th><th>Pendientes</th><th>% cumplimiento</th></tr></thead>
+            <tbody>
+              {% for item in productivity.territories %}
+              <tr><td>{{ item.territorio }}</td><td>{{ item.assigned }}</td><td>{{ item.completed }}</td><td>{{ item.pending }}</td><td>{{ item.compliance }}%</td></tr>
+              {% else %}
+              <tr><td colspan="5" class="text-muted">Sin datos territoriales para la fecha seleccionada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-0">Tablero gerencial Secretaría / Subsecretaría</h1>
+    <div class="text-muted small">Seguimiento consolidado de visitas, aprobaciones, sincronización y cobertura territorial.</div>
+  </div>
+</div>
+<div class="row g-3 mb-4">
+  {% for label, value in [('Usuarios', metrics.usuarios), ('Funcionarios', metrics.funcionarios), ('Revisores', metrics.revisores), ('Admins', metrics.admins), ('Datasets', metrics.datasets), ('Visitas', metrics.visitas), ('Conflictos pendientes', metrics.conflictos_pendientes), ('Errores sync', metrics.errores_sync)] %}
+  <div class="col-md-3 col-lg-2"><div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">{{ label }}</div><div class="display-6 fw-semibold">{{ value }}</div></div></div></div>
+  {% endfor %}
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-body"><h2 class="h5">Visitas por estado</h2><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Estado</th><th>Total</th></tr></thead><tbody>{% for key, value in visits_by_status.items() %}<tr><td>{{ key }}</td><td>{{ value }}</td></tr>{% else %}<tr><td colspan="2" class="text-muted">Sin datos.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+  <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-body"><h2 class="h5">Deuda por estado</h2><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Estado</th><th>Total</th></tr></thead><tbody>{% for key, value in deuda_by_status.items() %}<tr><td>{{ key }}</td><td>{{ value }}</td></tr>{% else %}<tr><td colspan="2" class="text-muted">Sin datos.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+</div>
+<div class="row g-3 mb-4">
+  <div class="col-lg-8"><div class="card shadow-sm"><div class="card-body"><h2 class="h5">Rendimiento por funcionario</h2><div class="table-responsive"><table class="table table-sm align-middle"><thead><tr><th>Funcionario</th><th>Rol</th><th>Visitas</th><th>Sincronizadas</th><th>Errores</th><th>Conflictos</th></tr></thead><tbody>{% for item in staff_metrics %}<tr><td>{{ item.name }}</td><td>{{ item.role }}</td><td>{{ item.visitas }}</td><td>{{ item.synced }}</td><td>{{ item.sync_error }}</td><td>{{ item.conflictos }}</td></tr>{% else %}<tr><td colspan="6" class="text-muted">Sin datos.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+  <div class="col-lg-4"><div class="card shadow-sm"><div class="card-body"><h2 class="h5">Notificaciones pendientes</h2><div class="list-group list-group-flush small">{% for item in notifications_summary %}<div class="list-group-item px-0 d-flex justify-content-between"><span>{{ item.name }}<br><span class="text-muted">{{ item.role }}</span></span><span class="badge {{ 'text-bg-danger' if item.unread else 'text-bg-light' }}">{{ item.unread }}</span></div>{% else %}<div class="text-muted">Sin datos.</div>{% endfor %}</div></div></div></div>
+</div>
+<div class="row g-3">
+  {% for key, label in [('comuna','Comunas'),('barrio','Barrios'),('vereda','Veredas'),('corregimiento','Corregimientos')] %}
+  <div class="col-12 col-xl-6">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h2 class="h5">Indicadores por {{ label|lower }}</h2>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>{{ label[:-1] if label.endswith('s') else label }}</th><th>Total registros</th><th>Pendientes revisión</th></tr></thead>
+            <tbody>
+              {% for item in territorial_indicators.get(key, []) %}
+              <tr><td>{{ item.territorio }}</td><td>{{ item.total }}</td><td>{{ item.pendientes_revision }}</td></tr>
+              {% else %}
+              <tr><td colspan="3" class="text-muted">Sin datos.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="card shadow-sm my-4">
+  <div class="card-body">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h5 mb-0">Productividad diaria</h2>
+        <div class="text-muted small">Seguimiento por funcionario y territorio para la agenda del día seleccionado.</div>
+      </div>
+      <form method="get" class="d-flex gap-2 align-items-end">
+        <div><label class="form-label small">Fecha</label><input class="form-control" type="date" name="productivity_date" value="{{ productivity_date }}"></div>
+        <div><button class="btn btn-primary">Ver</button></div>
+      </form>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Funcionario</th><th>Rol</th><th>Asignadas</th><th>Completadas</th><th>Pendientes</th><th>No efectivas</th><th>% cumplimiento</th><th>Top territorios</th><th>Km</th></tr></thead>
+            <tbody>
+              {% for item in productivity.staff %}
+              <tr><td>{{ item.name }}</td><td>{{ item.role }}</td><td>{{ item.assigned }}</td><td>{{ item.completed }}</td><td>{{ item.pending }}</td><td>{{ item.no_efectiva }}</td><td>{{ item.compliance }}%</td><td>{{ item.territories or '—' }}</td><td>{{ item.km }}</td></tr>
+              {% else %}
+              <tr><td colspan="9" class="text-muted">Sin agenda para la fecha seleccionada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Territorio</th><th>Asignadas</th><th>Completadas</th><th>Pendientes</th><th>% cumplimiento</th></tr></thead>
+            <tbody>
+              {% for item in productivity.territories %}
+              <tr><td>{{ item.territorio }}</td><td>{{ item.assigned }}</td><td>{{ item.completed }}</td><td>{{ item.pending }}</td><td>{{ item.compliance }}%</td></tr>
+              {% else %}
+              <tr><td colspan="5" class="text-muted">Sin datos territoriales para la fecha seleccionada.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

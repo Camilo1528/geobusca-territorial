@@ -1,0 +1,64 @@
+
+{% extends 'base.html' %}
+{% block title %}Comparación de conflicto{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-0">Conflicto dataset {{ conflict.dataset_id }} fila {{ conflict.row_idx }}</h1>
+    <div class="text-muted small">Actor: {{ conflict.actor_name or 'Sin usuario' }} · Estado: {{ conflict.resolution_status }}</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('conflict_log') }}">Volver</a>
+</div>
+<div class="row g-3">
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Comparación campo a campo</h2>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Campo</th><th>Cliente / tablet</th><th>Servidor</th></tr></thead>
+            <tbody>
+              {% for item in compare_rows %}
+              <tr>
+                <td class="fw-semibold">{{ item.label }}</td>
+                <td><div class="p-2 rounded border bg-warning-subtle small" style="white-space: pre-wrap;">{{ item.client_value or '—' }}</div></td>
+                <td><div class="p-2 rounded border bg-light small" style="white-space: pre-wrap;">{{ item.server_value or '—' }}</div></td>
+              </tr>
+              {% else %}
+              <tr><td colspan="3" class="text-muted">No hay diferencias campo a campo; el conflicto pudo originarse por versión.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h2 class="h5">Resolver</h2>
+        <form method="post" action="{{ url_for('resolve_conflict', conflict_id=conflict.id) }}" class="d-grid gap-2">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="back_to" value="detail">
+          <select class="form-select" name="resolution_status">
+            <option value="resolved">Resuelto</option>
+            <option value="ignored">Ignorado</option>
+            <option value="overwritten">Sobrescrito</option>
+          </select>
+          <textarea class="form-control" name="notes" rows="4" placeholder="Nota de resolución">{{ conflict.notes }}</textarea>
+          <button class="btn btn-primary">Guardar resolución</button>
+        </form>
+      </div>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-body small">
+        <div><strong>Versión cliente:</strong> {{ conflict.client_version }}</div>
+        <div><strong>Versión servidor:</strong> {{ conflict.server_version }}</div>
+        <div><strong>Creado:</strong> {{ conflict.created_at }}</div>
+        <div><strong>Resuelto por:</strong> {{ conflict.resolved_name or '—' }}</div>
+        <div><strong>Resuelto en:</strong> {{ conflict.resolved_at or '—' }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

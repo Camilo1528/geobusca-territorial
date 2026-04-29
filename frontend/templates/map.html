@@ -1,0 +1,254 @@
+{% extends 'base.html' %}
+{% block title %}Mapa{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <div>
+    <h1 class="h4 mb-1">Mapa del dataset {{ dataset.id }}</h1>
+    <div class="text-muted">{{ dataset.original_filename }}</div>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    {% if is_live %}
+    <div class="badge bg-info-light text-info d-flex align-items-center gap-2 border border-info shadow-sm px-3" style="animation: pulse 2s infinite;">
+      <i class="bi bi-broadcast"></i> MODO EN VIVO
+    </div>
+    <style>
+      @keyframes pulse {
+        0% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(0.98); }
+        100% { opacity: 1; transform: scale(1); }
+      }
+    </style>
+    {% endif %}
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('datasets.export_geojson', dataset_id=dataset.id) }}">GeoJSON</a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('datasets.export_kml', dataset_id=dataset.id) }}">KML</a>
+    <a class="btn btn-outline-success btn-sm" href="{{ url_for('datasets.export_xlsx', dataset_id=dataset.id) }}">Excel</a>
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('datasets.review', dataset_id=dataset.id) }}">Volver</a>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-body">
+    <div class="row g-2 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">Buscar</label>
+        <input id="filterQuery" class="form-control form-control-sm" placeholder="establecimiento, dirección">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Confianza</label>
+        <select id="filterConfidence" class="form-select form-select-sm">
+          <option value="">Todas</option>
+          <option value="ALTA">ALTA</option>
+          <option value="MEDIA">MEDIA</option>
+          <option value="BAJA">BAJA</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Filtrar Perímetro</label>
+        <div class="form-check form-switch mt-1">
+          <input class="form-check-input" type="checkbox" id="filterPerimeter" checked>
+          <label class="form-check-label small" for="filterPerimeter">Solo Rionegro</label>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Estado</label>
+        <select id="filterStatus" class="form-select form-select-sm">
+          <option value="">Todos</option>
+          <option value="OK">OK</option>
+          <option value="EDITADO_MANUALMENTE">EDITADO_MANUALMENTE</option>
+          <option value="CRUCE_HISTORICO">CRUCE_HISTORICO</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Zona</label>
+        <select id="filterZona" class="form-select form-select-sm">
+          <option value="">Todas</option>
+          <option value="URBANO">URBANO</option>
+          <option value="RURAL">RURAL</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Categoría</label>
+        <input id="filterCategory" class="form-control form-control-sm" placeholder="Ej. COMERCIO">
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Capa poligonal</label>
+        <select id="polygonLayer" class="form-select form-select-sm">
+          <option value="barrio">Barrios</option>
+          <option value="comuna">Comunas</option>
+          <option value="corregimiento">Corregimientos</option>
+          <option value="vereda">Veredas</option>
+          <option value="limite_municipal">Límite municipal</option>
+          <option value="zona_urbana">Zona urbana oficial</option>
+          <option value="zona_rural">Zona rural oficial</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Comuna</label>
+        <input id="filterComuna" class="form-control form-control-sm" placeholder="Nombre comuna">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Barrio</label>
+        <input id="filterBarrio" class="form-control form-control-sm" placeholder="Nombre barrio">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Corregimiento</label>
+        <input id="filterCorregimiento" class="form-control form-control-sm" placeholder="Nombre corregimiento">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Vereda</label>
+        <input id="filterVereda" class="form-control form-control-sm" placeholder="Nombre vereda">
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button id="applyFilters" class="btn btn-primary btn-sm">Aplicar</button>
+        <button id="exportVisible" class="btn btn-outline-secondary btn-sm">CSV visible</button>
+      </div>
+    </div>
+    <div id="mapMeta" class="small text-muted mt-2">Cargando datos...</div>
+  </div>
+</div>
+
+<div class="ratio ratio-16x9 border rounded overflow-hidden bg-white">
+  <div id="map"></div>
+</div>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<script>
+const map = L.map('map').setView([{{ alcaldia_lat }}, {{ alcaldia_lon }}], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19,
+  attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+L.marker([{{ alcaldia_lat }}, {{ alcaldia_lon }}]).addTo(map).bindPopup('Centro de referencia');
+const pointLayer = L.markerClusterGroup({
+  showCoverageOnHover: false,
+  zoomToBoundsOnClick: true,
+  spiderfyOnMaxZoom: true,
+  maxClusterRadius: 50
+}).addTo(map);
+let polygonLayer = null;
+let currentRows = [];
+
+function markerColor(confidence) {
+  const value = String(confidence || '').toUpperCase();
+  if (value === 'ALTA') return '#2f9e44';
+  if (value === 'MEDIA') return '#f08c00';
+  return '#e03131';
+}
+
+function markerIcon(confidence) {
+  const color = markerColor(confidence);
+  return L.divIcon({
+    className: 'custom-pin',
+    html: `<div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></div>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 7],
+  });
+}
+
+function polygonStyle(feature) {
+  const count = Number(feature.properties.empresas_total || 0);
+  let fillColor = '#edf2ff';
+  if (count >= 50) fillColor = '#364fc7';
+  else if (count >= 20) fillColor = '#4c6ef5';
+  else if (count >= 5) fillColor = '#91a7ff';
+  return { color: '#495057', weight: 1, fillColor, fillOpacity: 0.35 };
+}
+
+function onEachPolygon(feature, layer) {
+  const props = feature.properties || {};
+  const html = `<strong>${props._feature_name || 'Territorio'}</strong><br>` +
+    `Empresas: ${props.empresas_total || 0}<br>` +
+    `Densidad/km²: ${props.densidad_km2 ?? 'n/d'}<br>` +
+    `Top categoría: ${props.top_categoria || 'Sin datos'}`;
+  layer.bindPopup(html);
+}
+
+function renderRows(rows) {
+  currentRows = rows || [];
+  pointLayer.clearLayers();
+  const bounds = [];
+  currentRows.forEach(item => {
+    const lat = Number(item.latitud);
+    const lng = Number(item.longitud);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const title = (item.nom_establec || 'Establecimiento').toString().replace(/[<>]/g, '');
+    const address = (item.direccion_geocodable || item.direccion || '').toString().replace(/[<>]/g, '');
+    const territory = [item.comuna, item.barrio, item.corregimiento, item.vereda].filter(Boolean).join(' / ');
+    const visit = item.visita_estado || 'SIN_VISITA';
+    const debt = item.deuda_estado || 'SIN_VALIDAR_DEUDA';
+    const popup = `<strong>${title}</strong><br>${address}<br><small>${item.estado_geo || ''} · ${item.geo_confianza || ''}</small><br><small>${territory || 'Sin territorio'} · ${item.categoria_economica || ''}</small><br><small>Visita: ${visit} · Deuda: ${debt}${item.deuda_monto ? ' (' + item.deuda_monto + ')' : ''}</small>`;
+    L.marker([lat, lng], { icon: markerIcon(item.geo_confianza) }).addTo(pointLayer).bindPopup(popup);
+    bounds.push([lat, lng]);
+  });
+  document.getElementById('mapMeta').textContent = `Puntos visibles: ${currentRows.length}`;
+  if (bounds.length) map.fitBounds(bounds, { padding: [30, 30] });
+}
+
+async function loadRows() {
+  const params = new URLSearchParams({
+    q: document.getElementById('filterQuery').value,
+    confidence: document.getElementById('filterConfidence').value,
+    status: document.getElementById('filterStatus').value,
+    comuna: document.getElementById('filterComuna').value,
+    barrio: document.getElementById('filterBarrio').value,
+    corregimiento: document.getElementById('filterCorregimiento').value,
+    vereda: document.getElementById('filterVereda').value,
+    zona_rionegro: document.getElementById('filterZona').value,
+    categoria_economica: document.getElementById('filterCategory').value,
+    perimeter_only: document.getElementById('filterPerimeter').checked,
+  });
+  const response = await fetch({{ url_for('dashboard.map_data', dataset_id=dataset.id)|tojson }} + `?${params.toString()}`);
+  const data = await response.json();
+  if (data.ok && data.points) {
+    renderRows(data.points);
+  } else if (Array.isArray(data)) {
+    // Fallback for old structure if server didn't reload
+    renderRows(data);
+  }
+}
+
+async function loadPolygonLayer() {
+  const params = new URLSearchParams({ layer_type: document.getElementById('polygonLayer').value });
+  const response = await fetch({{ url_for('dashboard.map_layer_data', dataset_id=dataset.id)|tojson }} + `?${params.toString()}`);
+  const data = await response.json();
+  if (polygonLayer) {
+    map.removeLayer(polygonLayer);
+    polygonLayer = null;
+  }
+  if (!data.ok || !data.feature_collection || !data.feature_collection.features.length) {
+    return;
+  }
+  polygonLayer = L.geoJSON(data.feature_collection, { style: polygonStyle, onEachFeature: onEachPolygon }).addTo(map);
+}
+
+function exportVisibleCsv() {
+  if (!currentRows.length) return;
+  const columns = Object.keys(currentRows[0]);
+  const lines = [columns.join(',')].concat(currentRows.map(row => columns.map(col => JSON.stringify(row[col] ?? '')).join(',')));
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'mapa_visible.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function reloadMap() {
+  await loadRows();
+  await loadPolygonLayer();
+}
+
+document.getElementById('applyFilters').addEventListener('click', reloadMap);
+document.getElementById('exportVisible').addEventListener('click', exportVisibleCsv);
+document.getElementById('polygonLayer').addEventListener('change', loadPolygonLayer);
+
+reloadMap();
+</script>
+{% endblock %}

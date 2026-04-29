@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Trabajos{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <div>
+    <h1 class="h4 mb-1">Trabajos en background</h1>
+    <div class="text-muted">Procesamiento asíncrono del sistema</div>
+  </div>
+  <a class="btn btn-outline-secondary" href="{{ url_for('dashboard') }}">Volver</a>
+</div>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-sm table-striped align-middle">
+        <thead><tr><th>ID</th><th>Dataset</th><th>Tipo</th><th>Estado</th><th>Progreso</th><th>Paso</th><th>Error</th><th>Creado</th></tr></thead>
+        <tbody>
+          {% for job in jobs %}
+          <tr>
+            <td>{{ job.id }}</td>
+            <td>{{ job.dataset_id or '' }}</td>
+            <td>{{ job.job_type }}</td>
+            <td><span class="badge {{ 'text-bg-success' if job.status == 'finished' else ('text-bg-danger' if job.status == 'failed' else 'text-bg-warning') }}">{{ job.status }}</span></td>
+            <td><div class="progress" style="height:8px;"><div class="progress-bar" role="progressbar" data-width="{{ job.progress }}"></div></div><div class="small text-muted mt-1">{{ job.progress }}%</div></td>
+            <td>{{ job.current_step or '' }}</td>
+            <td class="small text-danger">{{ job.error_message or '' }}</td>
+            <td class="small text-muted">{{ job.created_at }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-muted">No hay trabajos registrados.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.progress-bar[data-width]').forEach(el => {
+        el.style.width = el.dataset.width + '%';
+    });
+});
+</script>
+{% endblock %}

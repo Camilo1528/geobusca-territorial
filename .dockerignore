@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+.venv/
+.git/
+.vscode/
+.gemini/
+backend/geobusca_data/
+geobusca_data/
+*.md
+mover_*.py
+test.js

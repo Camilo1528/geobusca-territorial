@@ -1,0 +1,210 @@
+{% extends 'base.html' %}
+{% block title %}RVT imprimible{% endblock %}
+{% block content %}
+<style>
+  .rvt-paper { background:#fff; color:#111; max-width:1080px; margin:0 auto; }
+  .rvt-toolbar { position:sticky; top:0; z-index:10; background:#f8f9fa; border:1px solid #dee2e6; padding:12px; border-radius:10px; margin-bottom:16px; }
+  .rvt-sheet { border:1px solid #222; padding:18px; }
+  .rvt-title { text-align:center; font-weight:700; }
+  .rvt-grid-2 { display:grid; grid-template-columns: 1.2fr 1fr; gap:16px; }
+  .rvt-grid-3 { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:16px; }
+  .rvt-box { border:1px solid #222; padding:12px; min-height:120px; }
+  .rvt-section-title { font-weight:700; margin:18px 0 8px; }
+  .rvt-table { width:100%; border-collapse:collapse; }
+  .rvt-table th, .rvt-table td { border:1px solid #222; padding:7px 8px; vertical-align:top; }
+  .rvt-label { display:block; font-size:12px; color:#444; margin-bottom:2px; }
+  .rvt-value { min-height:22px; border-bottom:1px solid #999; padding-bottom:2px; }
+  .rvt-checkbox-line { display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; }
+  .rvt-check { white-space:nowrap; }
+  .rvt-check .box { display:inline-block; width:14px; height:14px; border:1px solid #000; margin-right:6px; text-align:center; line-height:12px; font-size:12px; }
+  .rvt-note { border:1px solid #222; padding:10px; font-size:12px; margin-top:10px; }
+  .toolbar-hide-print { display:inline-flex; gap:8px; flex-wrap:wrap; }
+  .signature-image, .evidence-image { max-width:100%; height:auto; border:1px solid #999; border-radius:8px; background:#fff; }
+  @media (max-width: 991.98px) {
+    .rvt-grid-2, .rvt-grid-3 { grid-template-columns: 1fr; }
+  }
+  @media print {
+    nav, .navbar, .alert, footer, .btn, .rvt-toolbar, .toolbar-hide-print { display:none !important; }
+    body { background:#fff !important; }
+    .container { max-width:none !important; width:auto !important; }
+    .card, .shadow-sm { box-shadow:none !important; border:none !important; }
+    .rvt-sheet { border:none; padding:0; }
+    .rvt-paper { max-width:none; }
+  }
+</style>
+
+<div class="rvt-paper">
+  <div class="rvt-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div>
+      <div class="fw-semibold">Registro de Visita Tributaria</div>
+      <div class="small text-muted">Dataset {{ dataset.id }} · fila {{ visit.row_idx }}</div>
+      {% if saved %}<div class="small text-success">Guardado correctamente.</div>{% endif %}
+      {% if emailed %}<div class="small text-primary">Enviado a {{ emailed_to }}.</div>{% endif %}
+      {% if request.args.get('conflict') == '1' %}<div class="small text-warning">Conflicto detectado: ya existe una versión más reciente en el servidor.</div>{% endif %}
+    </div>
+    <div class="toolbar-hide-print">
+      <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('visits.visits_view', dataset_id=dataset.id) }}">Volver</a>
+      <a class="btn btn-outline-dark btn-sm" href="{{ url_for('admin.visit_print_download', dataset_id=dataset.id, row_idx=visit.row_idx) }}">Descargar HTML</a>
+      <a class="btn btn-outline-dark btn-sm" href="{{ url_for('visits.visit_print_pdf', dataset_id=dataset.id, row_idx=visit.row_idx) }}">Descargar PDF ahora</a>
+      <a class="btn btn-outline-primary btn-sm" href="{{ url_for('visits.visit_print_pdf', dataset_id=dataset.id, row_idx=visit.row_idx, async=1) }}">Generar PDF en segundo plano</a>
+      <a class="btn btn-outline-success btn-sm" target="_blank" href="{{ whatsapp_url }}">Compartir a WhatsApp</a>
+      <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">Imprimir / Guardar PDF</button>
+    </div>
+  </div>
+
+  <div class="rvt-sheet">
+    <div class="d-flex justify-content-between align-items-start mb-3 gap-3">
+      <div style="font-size:44px;font-weight:800;line-height:1;">RVT</div>
+      <div class="rvt-title flex-grow-1">
+        <div>Registro de Visita Tributaria</div>
+        <div>Subsecretaría de Rentas</div>
+        <div>Secretaría de Hacienda – Municipio de Rionegro</div>
+        <div class="small">Diligenciar sin tachones, borrones ni enmendaduras · www.rionegro.gov.co</div>
+      </div>
+      <div class="text-end small">
+        <div>Alcaldía de Rionegro</div>
+        <div>Departamento de Antioquia</div>
+        <div>NIT. 890.907.317-2</div>
+      </div>
+    </div>
+
+    <div class="rvt-grid-2">
+      <div class="rvt-box">
+        <div class="fw-bold mb-2">I. DATOS INFORMATIVOS</div>
+        <div class="mb-2">Elija una opción</div>
+        {% set tipo = visit.rvt_tipo_visita|upper %}
+        <div class="rvt-checkbox-line">
+          <span class="rvt-check"><span class="box">{% if tipo == 'INSCRITO' %}X{% endif %}</span>Inscrito</span>
+          <span class="rvt-check"><span class="box">{% if tipo == 'OMISO' %}X{% endif %}</span>Omiso</span>
+          <span class="rvt-check"><span class="box">{% if tipo == 'CERRADO' %}X{% endif %}</span>Cerrado</span>
+          <span class="rvt-check"><span class="box">{% if tipo in ['ACTUALIZACION', 'ACTUALIZACIÓN'] %}X{% endif %}</span>Actualización</span>
+        </div>
+        <div class="row mt-3 g-2">
+          <div class="col-sm-6"><span class="rvt-label">Código establecimiento</span><div class="rvt-value">{{ visit.rvt_codigo_establecimiento }}</div></div>
+          <div class="col-sm-3"><span class="rvt-label">Fecha visita</span><div class="rvt-value">{{ visit.visita_fecha }}</div></div>
+          <div class="col-sm-3"><span class="rvt-label">Hora visita</span><div class="rvt-value">{{ visit.visita_hora }}</div></div>
+        </div>
+      </div>
+      <div class="rvt-box">
+        <div class="fw-bold mb-2">Datos de quien recibe la visita</div>
+        <div class="mb-2"><span class="rvt-label">Nombres y Apellidos</span><div class="rvt-value">{{ visit.rvt_recibe_nombre }}</div></div>
+        <div class="row g-2">
+          <div class="col-sm-5"><span class="rvt-label">Tipo documento</span><div class="rvt-value">{{ visit.rvt_recibe_tipo_documento }}</div></div>
+          <div class="col-sm-7"><span class="rvt-label">No documento</span><div class="rvt-value">{{ visit.rvt_recibe_numero_documento }}</div></div>
+        </div>
+        <div class="mt-2"><span class="rvt-label">Cargo</span><div class="rvt-value">{{ visit.rvt_recibe_cargo }}</div></div>
+      </div>
+    </div>
+
+    <div class="rvt-section-title">II. DATOS DEL CONTRIBUYENTE</div>
+    <table class="rvt-table">
+      <tr>
+        <td><span class="rvt-label">Apellidos y Nombres o Razón social</span>{{ visit.rvt_razon_social }}</td>
+        <td><span class="rvt-label">NIT / C.C.</span>{{ visit.rvt_nit_cc }}</td>
+        <td><span class="rvt-label">Avisos y Tableros</span>{{ visit.rvt_avisos_tableros }}</td>
+      </tr>
+      <tr>
+        <td><span class="rvt-label">Dirección del establecimiento</span>{{ visit.rvt_direccion_establecimiento }}</td>
+        <td><span class="rvt-label">Municipio</span>{{ visit.rvt_municipio }}</td>
+        <td><span class="rvt-label">Departamento</span>{{ visit.rvt_departamento }}</td>
+      </tr>
+      <tr>
+        <td><span class="rvt-label">Dirección de cobro</span>{{ visit.rvt_direccion_cobro }}</td>
+        <td><span class="rvt-label">Municipio cobro</span>{{ visit.rvt_municipio_cobro }}</td>
+        <td><span class="rvt-label">Departamento cobro</span>{{ visit.rvt_departamento_cobro }}</td>
+      </tr>
+      <tr>
+        <td><span class="rvt-label">Teléfono móvil</span>{{ visit.rvt_telefono_movil }}</td>
+        <td><span class="rvt-label">Teléfono fijo</span>{{ visit.rvt_telefono_fijo }}</td>
+        <td><span class="rvt-label">Correo electrónico</span>{{ visit.rvt_correo_electronico }}</td>
+      </tr>
+      <tr>
+        <td>
+          <span class="rvt-label">Tipo de actividad / sector económico</span>
+          {% set sector = visit.rvt_sector_economico|upper %}
+          <div class="rvt-checkbox-line">
+            <span class="rvt-check"><span class="box">{% if sector == 'COMERCIAL' %}X{% endif %}</span>Comercial</span>
+            <span class="rvt-check"><span class="box">{% if sector == 'SERVICIOS' %}X{% endif %}</span>Servicios</span>
+            <span class="rvt-check"><span class="box">{% if sector == 'INDUSTRIAL' %}X{% endif %}</span>Industrial</span>
+            <span class="rvt-check"><span class="box">{% if sector == 'FINANCIERO' %}X{% endif %}</span>Financiero</span>
+          </div>
+        </td>
+        <td colspan="2"><span class="rvt-label">Fecha de inicio de actividades</span>{{ visit.rvt_fecha_inicio_actividades }}</td>
+      </tr>
+      <tr>
+        <td><span class="rvt-label">Código CIIU</span>{{ visit.rvt_codigo_ciiu_1 }}</td>
+        <td><span class="rvt-label">Código CIIU</span>{{ visit.rvt_codigo_ciiu_2 }}</td>
+        <td><span class="rvt-label">Descripción de la actividad económica</span>{{ visit.rvt_descripcion_actividad }}</td>
+      </tr>
+    </table>
+
+    <div class="rvt-section-title">III. REPRESENTACIÓN LEGAL</div>
+    <table class="rvt-table">
+      <tr><th>Nombres y Apellidos</th><th>Identificación</th><th>Correo electrónico</th></tr>
+      <tr><td>a. {{ visit.rvt_rep_legal_a_nombre }}</td><td>{{ visit.rvt_rep_legal_a_identificacion }}</td><td>{{ visit.rvt_rep_legal_a_correo }}</td></tr>
+      <tr><td>b. {{ visit.rvt_rep_legal_b_nombre }}</td><td>{{ visit.rvt_rep_legal_b_identificacion }}</td><td>{{ visit.rvt_rep_legal_b_correo }}</td></tr>
+    </table>
+
+    <div class="rvt-note"><strong>Observaciones:</strong><br>{{ visit.visita_observaciones }}</div>
+    <div class="rvt-note">Esta visita se realiza conforme a lo establecido en el artículo 326, 332 y 378 del Acuerdo Municipal 023 del 2018 y el artículo 28 del Acuerdo 030 de 2020. El contribuyente tendrá un término de 15 días para entregar a la Subsecretaría de Rentas la documentación que el funcionario requiera en el momento de la visita.</div>
+    <div class="rvt-note"><strong>Validación de deuda:</strong> {{ visit.deuda_estado or 'SIN VALIDAR' }} {% if visit.deuda_monto %}· {{ visit.deuda_monto }}{% endif %} {% if visit.deuda_referencia %}· Ref: {{ visit.deuda_referencia }}{% endif %}</div>
+
+    <div class="rvt-section-title">Ubicación y evidencias de campo</div>
+    <div class="rvt-grid-3">
+      <div class="rvt-box">
+        <div class="fw-bold mb-2">GPS</div>
+        <div><span class="rvt-label">Latitud</span><div class="rvt-value">{{ visit.visit_latitude }}</div></div>
+        <div class="mt-2"><span class="rvt-label">Longitud</span><div class="rvt-value">{{ visit.visit_longitude }}</div></div>
+        <div class="mt-2"><span class="rvt-label">Precisión</span><div class="rvt-value">{{ visit.visit_gps_accuracy }}</div></div>
+      </div>
+      <div class="rvt-box">
+        <div class="fw-bold mb-2">Foto establecimiento</div>
+        {% if visit.visit_photo_establecimiento_url %}
+          <img class="evidence-image" src="{{ visit.visit_photo_establecimiento_url }}" alt="Foto establecimiento">
+        {% else %}
+          <div class="text-muted small">Sin evidencia adjunta.</div>
+        {% endif %}
+      </div>
+      <div class="rvt-box">
+        <div class="fw-bold mb-2">Foto documento</div>
+        {% if visit.visit_photo_documento_url %}
+          <img class="evidence-image" src="{{ visit.visit_photo_documento_url }}" alt="Foto documento">
+        {% else %}
+          <div class="text-muted small">Sin evidencia adjunta.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if visit.attachments %}
+    <div class="rvt-section-title">Anexos múltiples de la visita</div>
+    <table class="rvt-table">
+      <tr><th>#</th><th>Archivo</th><th>Tipo</th><th>Tamaño</th></tr>
+      {% for item in visit.attachments %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td><a href="{{ item.url }}" target="_blank">{{ item.original_filename or item.stored_filename }}</a></td>
+        <td>{{ item.mime_type }}</td>
+        <td>{{ item.file_size }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+
+    <div class="rvt-section-title">IV. FIRMAS DE RECEPCIÓN</div>
+    <table class="rvt-table">
+      <tr><th>Firma de quien recibe la visita</th><th>Nombre y firma del funcionario</th></tr>
+      <tr>
+        <td>
+          <div><span class="rvt-label">Nombre</span>{{ visit.rvt_firma_recibe_nombre }}</div>
+          <div class="mt-2"><span class="rvt-label">Documento</span>{{ visit.rvt_firma_recibe_tipo_documento }} {{ visit.rvt_firma_recibe_numero_documento }}</div>
+          {% if visit.visit_signature_receiver %}<div class="mt-3"><img class="signature-image" src="{{ visit.visit_signature_receiver }}" alt="Firma recibe"></div><div class="small text-muted mt-2">Hash: {{ visit.visit_signature_receiver_hash }}<br>Firmado por: {{ visit.visit_signature_receiver_signer }}<br>Fecha firma: {{ visit.visit_signature_receiver_signed_at }}</div>{% endif %}
+        </td>
+        <td>
+          <div><span class="rvt-label">Funcionario</span>{{ visit.rvt_funcionario_firma_nombre or visit.visita_funcionario }}</div>
+          {% if visit.visit_signature_officer %}<div class="mt-3"><img class="signature-image" src="{{ visit.visit_signature_officer }}" alt="Firma funcionario"></div><div class="small text-muted mt-2">Hash: {{ visit.visit_signature_officer_hash }}<br>Firmado por: {{ visit.visit_signature_officer_signer }}<br>Fecha firma: {{ visit.visit_signature_officer_signed_at }}</div>{% endif %}
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+{% endblock %}

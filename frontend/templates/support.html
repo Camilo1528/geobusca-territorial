@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Centro de Ayuda{% endblock %}
+
+{% block content %}
+<div class="container animate-in">
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <h1 class="h3 fw-bold mb-3">Centro de Ayuda</h1>
+            <p class="text-muted mb-4">¿Tienes dudas con un predio o problemas técnicos? Envía un mensaje a la administración.</p>
+            
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-body p-4">
+                    <form method="post">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Asunto</label>
+                            <input type="text" name="subject" class="form-control rounded-3" placeholder="Ej: Problema con GPS, Duda en Predio #123" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Mensaje / Detalle</label>
+                            <textarea name="message" class="form-control rounded-3" rows="5" placeholder="Describe tu consulta con detalle..." required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold py-2 shadow-sm">
+                            <i class="bi bi-send me-2"></i>Enviar Consulta
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <h2 class="h5 fw-bold mb-3">Mis Consultas Recientes</h2>
+            <div class="d-grid gap-3">
+                {% for ticket in tickets %}
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="fw-bold mb-0">{{ ticket.subject }}</h6>
+                            <span class="badge {{ 'bg-warning' if ticket.status == 'open' else 'bg-info' if ticket.status == 'pending' else 'bg-success' }} rounded-pill">
+                                {{ 'Abierto' if ticket.status == 'open' else 'En Proceso' if ticket.status == 'pending' else 'Cerrado' }}
+                            </span>
+                        </div>
+                        <p class="small text-muted mb-3">{{ ticket.message }}</p>
+                        
+                        {% if ticket.admin_response %}
+                        <div class="bg-light p-3 rounded-3 border-start border-primary border-4 mt-2">
+                            <div class="fw-bold small mb-1 text-primary">Respuesta de Soporte:</div>
+                            <div class="small">{{ ticket.admin_response }}</div>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="text-end mt-2">
+                            <span class="text-muted" style="font-size: 11px;">{{ ticket.created_at }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center py-5 text-muted border rounded-4 border-dashed">
+                    No has enviado consultas todavía.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

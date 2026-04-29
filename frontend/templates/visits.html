@@ -1,0 +1,442 @@
+{% extends 'base.html' %}
+{% block title %}Visitas y Deuda{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/visits.css') }}">
+<style>
+  .animate-in { animation: fadeIn 0.3s ease-out forwards; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+  .wizard-nav .btn.completed { background-color: rgba(var(--primary-rgb), 0.1); color: var(--primary-color); border-color: var(--primary-color); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-5 animate-in">
+  <div>
+    <h1 class="h3 mb-1 fw-bold">Registro de Visita Tributaria</h1>
+    <div class="text-muted d-flex align-items-center gap-2">
+      <i class="bi bi-geo-alt-fill text-primary"></i>
+      Modo Campo · Dataset {{ dataset.id }} · {{ dataset.original_filename }}
+    </div>
+  </div>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#bulkMediaModal">
+      <i class="bi bi-file-zip me-2"></i>Carga Masiva de Multimedia
+    </button>
+    <a class="btn btn-outline-primary" href="{{ url_for('datasets.review', dataset_id=dataset.id) }}">
+      <i class="bi bi-arrow-left me-2"></i>Volver
+    </a>
+  </div>
+</div>
+
+<div class="alert alert-primary border-0 shadow-sm mb-5 d-flex align-items-center gap-3 p-4 animate-in">
+  <div class="fs-2 text-primary"><i class="bi bi-info-circle-fill"></i></div>
+  <div>
+    <h4 class="h6 fw-bold mb-1 text-primary-emphasis">Optimizado para trabajo en campo</h4>
+    <p class="mb-0 small text-primary-emphasis opacity-75">Navegación por pasos, botones amplios, borrador automático local y captura de evidencias multimedia.</p>
+  </div>
+</div>
+
+<div class="row g-4 mb-5 stagger-1">
+  <div class="col-6 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small mb-1">Requeridas</div>
+      <div class="fs-4 fw-bold text-warning">{{ visit_summary.visitas_requeridas }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small mb-1">Realizadas</div>
+      <div class="fs-4 fw-bold text-success">{{ visit_summary.visitas_realizadas }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small mb-1">Pendientes</div>
+      <div class="fs-4 fw-bold text-secondary">{{ visit_summary.visitas_pendientes }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small mb-1">Adeudan</div>
+      <div class="fs-4 fw-bold text-danger">{{ visit_summary.adeudan }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small mb-1">Al día</div>
+      <div class="fs-4 fw-bold text-primary">{{ visit_summary.al_dia }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-2">
+    <div class="card border-0 shadow-sm h-100 text-center p-3">
+      <div class="text-muted small mb-1">Sin validación</div>
+      <div class="fs-4 fw-bold text-dark">{{ visit_summary.sin_validacion_deuda }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="tablet-shell">
+  <aside class="tablet-sidebar stagger-2">
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h2 class="h6 mb-3 fw-bold">Buscar Registro</h2>
+        <form method="get" class="row g-2">
+          <div class="col-12">
+            <div class="input-group">
+              <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+              <input class="form-control border-start-0" name="q" placeholder="Nombre, NIT o barrio..." value="{{ q }}">
+            </div>
+          </div>
+          <div class="col-12 d-flex gap-2">
+            <button class="btn btn-primary flex-fill" type="submit">Buscar</button>
+            <a class="btn btn-light border" href="{{ url_for('visits.visits_view', dataset_id=dataset.id) }}">Limpiar</a>
+          </div>
+          <div class="col-12 mt-3">
+            <div class="form-check form-switch small">
+              <input class="form-check-input" type="checkbox" value="1" name="only_pending" id="only_pending" {% if only_pending %}checked{% endif %}>
+              <label class="form-check-label text-muted" for="only_pending">Mostrar solo pendientes</label>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="queue-container">
+      {% for item in queue %}
+      <button type="button" class="btn text-start queue-card w-100" data-index='{{ loop.index0 }}'>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div class="badge bg-light text-dark border">Fila {{ item.row_idx }}</div>
+          <span class="badge {{ 'bg-warning-subtle text-warning-emphasis' if item.visita_requerida else 'bg-light text-muted' }}">
+            {{ 'Requerida' if item.visita_requerida else 'Opcional' }}
+          </span>
+        </div>
+        <div class="fw-bold text-dark mb-1">{{ item.nom_establec or 'Sin nombre' }}</div>
+        <div class="small text-muted mb-3"><i class="bi bi-geo-alt me-1"></i>{{ item.direccion or 'Sin dirección' }}</div>
+        
+        <div class="d-flex flex-wrap gap-1">
+          {% if item.barrio %}<span class="badge bg-white text-dark border fw-normal">{{ item.barrio }}</span>{% endif %}
+          {% if item.deuda_estado %}<span class="badge bg-danger-subtle text-danger-emphasis border-0">{{ item.deuda_estado }}</span>{% endif %}
+        </div>
+      </button>
+      {% else %}
+      <div class="card border-0 shadow-sm text-center py-5">
+        <i class="bi bi-inbox fs-1 text-muted mb-2"></i>
+        <div class="text-muted">No se encontraron registros.</div>
+      </div>
+      {% endfor %}
+    </div>
+  </aside>
+
+  <section class="stagger-3">
+    <div class="card tablet-form-card touch-field">
+      <div class="card-body p-4">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+          <div>
+            <h2 class="h5 mb-1 fw-bold">Diligenciamiento de Visita</h2>
+            <div id="networkStatus" class="badge bg-success">En línea</div>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            <div id="draftStatus" class="small text-success d-none animate-in">
+              <i class="bi bi-cloud-check-fill me-1"></i>Borrador guardado
+            </div>
+            <button type="button" class="btn btn-light btn-sm border" id="saveDraftBtn"><i class="bi bi-save me-1"></i>Borrador</button>
+            <button type="button" class="btn btn-light btn-sm border text-danger" id="clearDraftBtn"><i class="bi bi-trash me-1"></i>Limpiar</button>
+          </div>
+        </div>
+
+        <div class="progress mb-4" style="height: 6px; border-radius: 10px; background-color: rgba(var(--primary-rgb), 0.1);">
+          <div id="wizardProgress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 16.66%;"></div>
+        </div>
+
+        <div class="wizard-nav mb-4">
+          <button type="button" class="btn btn-primary step-trigger" data-step="1">1. Informativos</button>
+          <button type="button" class="btn btn-outline-primary step-trigger" data-step="2">2. Contribuyente</button>
+          <button type="button" class="btn btn-outline-primary step-trigger" data-step="3">3. Representación</button>
+          <button type="button" class="btn btn-outline-primary step-trigger" data-step="4">4. Deuda & GPS</button>
+          <button type="button" class="btn btn-outline-primary step-trigger" data-step="5">5. Evidencias</button>
+          <button type="button" class="btn btn-outline-primary step-trigger" data-step="6">6. Firma & Envío</button>
+        </div>
+
+        <form id="visit-form" method="post" action="{{ url_for('visits.save_visit', dataset_id=dataset.id) }}" enctype="multipart/form-data">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="visita_estado" value="REALIZADA">
+          <input type="hidden" name="visit_device" id="visit_device">
+          <input type="hidden" name="visit_signature_receiver" id="visit_signature_receiver">
+          <input type="hidden" name="visit_signature_receiver_stats" id="visit_signature_receiver_stats">
+          <input type="hidden" name="visit_signature_officer" id="visit_signature_officer">
+          <input type="hidden" name="visit_signature_officer_stats" id="visit_signature_officer_stats">
+          <input type="hidden" name="visit_photo_establecimiento_dataurl" id="visit_photo_establecimiento_dataurl">
+          <input type="hidden" name="visit_photo_documento_dataurl" id="visit_photo_documento_dataurl">
+          <input type="hidden" name="visit_attachments_dataurls" id="visit_attachments_dataurls">
+          <input type="hidden" name="server_updated_at" id="server_updated_at">
+          <input type="hidden" name="force_overwrite" id="force_overwrite" value="0">
+
+          <div class="wizard-step active" data-step="1">
+            <h3 class="h6 fw-bold text-primary text-uppercase tracking-wider mb-4">I. Datos Informativos</h3>
+            <div class="row g-4">
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Fila Dataset</label>
+                <input class="form-control" id="row_idx" name="row_idx" type="number" required readonly>
+              </div>
+              <div class="col-md-9">
+                <label class="form-label small fw-bold">Tipo de Visita</label>
+                <select class="form-select" name="rvt_tipo_visita" id="rvt_tipo_visita" required>
+                  <option value="">Seleccione causal...</option>
+                  <option value="INSCRITO">Inscrito</option>
+                  <option value="OMISO">Omiso</option>
+                  <option value="CERRADO">Cerrado / No ubicado</option>
+                  <option value="ACTUALIZACION">Actualización de datos</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Código Establecimiento</label>
+                <input class="form-control" name="rvt_codigo_establecimiento">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Fecha</label>
+                <input class="form-control" type="date" name="visita_fecha" id="visita_fecha">
+              </div>
+              <div class="col-md-3">
+                <label class="form-label small fw-bold">Hora</label>
+                <input class="form-control" type="time" name="visita_hora" id="visita_hora">
+              </div>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="2">
+            <h3 class="h6 fw-bold text-primary text-uppercase tracking-wider mb-4">II. Datos del Contribuyente</h3>
+            <div class="row g-4">
+              <div class="col-12">
+                <label class="form-label small fw-bold">Nombres y Apellidos (Quien recibe)</label>
+                <input class="form-control" name="rvt_recibe_nombre" placeholder="Nombre de la persona atendiendo">
+              </div>
+              <div class="col-md-12">
+                <label class="form-label small fw-bold">Razón Social</label>
+                <input class="form-control fw-bold" name="rvt_razon_social" id="rvt_razon_social">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">NIT / C.C.</label>
+                <input class="form-control" name="rvt_nit_cc">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Avisos y Tableros</label>
+                <select class="form-select" name="rvt_avisos_tableros"><option value=""></option><option value="SI">Sí tiene expuesto</option><option value="NO">No tiene expuesto</option></select>
+              </div>
+              <div class="col-12">
+                <label class="form-label small fw-bold">Dirección Establecimiento</label>
+                <input class="form-control" name="rvt_direccion_establecimiento" id="rvt_direccion_establecimiento">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Correo Electrónico</label>
+                <input class="form-control" type="email" name="rvt_correo_electronico">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Sector Económico</label>
+                <select class="form-select" name="rvt_sector_economico" id="rvt_sector_economico"><option value=""></option><option>Comercial</option><option>Servicios</option><option>Industrial</option><option>Financiero</option></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="3">
+            <h3 class="h6 fw-bold text-primary text-uppercase tracking-wider mb-4">III. Representación & Observaciones</h3>
+            <div class="row g-4">
+              <div class="col-md-8"><label class="form-label small fw-bold">Representante Legal A</label><input class="form-control" name="rvt_rep_legal_a_nombre"></div>
+              <div class="col-md-4"><label class="form-label small fw-bold">Identificación</label><input class="form-control" name="rvt_rep_legal_a_identificacion"></div>
+              <div class="col-12"><label class="form-label small fw-bold">Observaciones de la Visita</label><textarea class="form-control" name="visita_observaciones" rows="6" placeholder="Detalles encontrados durante la inspección..."></textarea></div>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="4">
+            <h3 class="h6 fw-bold text-primary text-uppercase tracking-wider mb-4">IV. Validación de Deuda & GPS</h3>
+            <div class="row g-4 mb-5">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Estado de Cartera</label>
+                <select class="form-select" name="deuda_estado">
+                  <option value="">Seleccione...</option>
+                  <option value="AL_DIA">Al Día</option>
+                  <option value="ADEUDA">Adeuda</option>
+                  <option value="MOROSO">Moroso</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Monto Declarado/Deuda</label>
+                <input class="form-control" type="number" step="0.01" name="deuda_monto">
+              </div>
+            </div>
+            
+            <div class="bg-light p-4 rounded-4">
+              <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 class="h6 mb-0 fw-bold">Posicionamiento GPS</h4>
+                <button type="button" class="btn btn-primary btn-sm" id="gpsButton"><i class="bi bi-geo-alt me-2"></i>Capturar GPS</button>
+              </div>
+              <div class="row g-3">
+                <div class="col-md-4"><label class="form-label small fw-bold">Latitud</label><input class="form-control bg-white" name="visit_latitude" id="visit_latitude" readonly></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">Longitud</label><input class="form-control bg-white" name="visit_longitude" id="visit_longitude" readonly></div>
+                <div class="col-md-4"><label class="form-label small fw-bold">Precisión (m)</label><input class="form-control bg-white" name="visit_gps_accuracy" id="visit_gps_accuracy" readonly></div>
+              </div>
+              <div id="gpsStatus" class="small text-muted mt-2">Ubicación no capturada.</div>
+              <div id="visitMap" class="mt-3 rounded-4 border overflow-hidden d-none" style="height: 200px; z-index: 1;"></div>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="5">
+            <h3 class="h6 fw-bold text-primary text-uppercase tracking-wider mb-4">V. Evidencias Multimedia</h3>
+            <div class="row g-4">
+              <div class="col-md-6 text-center">
+                <label class="form-label small fw-bold d-block text-start">Fachada del Establecimiento</label>
+                <div class="mb-2">
+                  <img class="media-preview d-none" id="preview_establecimiento" alt="Preview fachada">
+                  <div class="py-5 bg-light rounded-4 border border-dashed" id="empty_preview_establecimiento">
+                    <i class="bi bi-camera fs-1 text-muted"></i>
+                  </div>
+                </div>
+                <input class="form-control form-control-sm" type="file" accept="image/*" capture="environment" name="visit_photo_establecimiento_file" id="visit_photo_establecimiento_file">
+              </div>
+              <div class="col-md-6 text-center">
+                <label class="form-label small fw-bold d-block text-start">Documento / Evidencia Adicional</label>
+                <div class="mb-2">
+                  <img class="media-preview d-none" id="preview_documento" alt="Preview documento">
+                  <div class="py-5 bg-light rounded-4 border border-dashed" id="empty_preview_documento">
+                    <i class="bi bi-file-earmark-image fs-1 text-muted"></i>
+                  </div>
+                </div>
+                <input class="form-control form-control-sm" type="file" accept="image/*,.pdf" capture="environment" name="visit_photo_documento_file" id="visit_photo_documento_file">
+              </div>
+            </div>
+          </div>
+
+          <div class="wizard-step" data-step="6">
+            <h3 class="h6 fw-bold text-primary text-uppercase tracking-wider mb-4">VI. Firmas de Aceptación</h3>
+            <div class="row g-4">
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Firma de quien recibe</label>
+                <div class="signature-wrap">
+                  <canvas class="signature-pad" id="signatureReceiver"></canvas>
+                </div>
+                <button type="button" class="btn btn-link btn-sm text-danger text-decoration-none px-0" data-clear-signature="signatureReceiver">Limpiar Firma</button>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label small fw-bold">Firma del Funcionario</label>
+                <div class="signature-wrap">
+                  <canvas class="signature-pad" id="signatureOfficer"></canvas>
+                </div>
+                <button type="button" class="btn btn-link btn-sm text-danger text-decoration-none px-0" data-clear-signature="signatureOfficer">Limpiar Firma</button>
+              </div>
+            </div>
+            <div class="alert alert-info border-0 mt-5 small">
+              <i class="bi bi-shield-check me-2"></i>
+              Las firmas se registran con hash criptográfico, geolocalización y marca de tiempo inalterable. Al guardar, se generará el acta PDF y se enviará copia por correo.
+            </div>
+          </div>
+
+          <div class="step-actions d-flex justify-content-between align-items-center">
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-light border px-4" id="prevStepBtn">Anterior</button>
+              <button type="button" class="btn btn-primary px-4" id="nextStepBtn">Siguiente</button>
+            </div>
+            <button type="submit" class="btn btn-success px-4 fw-bold">
+              <i class="bi bi-cloud-upload-fill me-2"></i>Guardar y Generar RVT
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mt-5 stagger-4">
+      <div class="card-body p-4">
+        <h2 class="h6 mb-4 fw-bold">Historial de Visitas Recientes</h2>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle small">
+            <thead class="table-light"><tr><th>Fila</th><th>Causal</th><th>Fecha</th><th>Funcionario</th><th>Cartera</th><th></th></tr></thead>
+            <tbody>
+              {% for item in visit_records[:15] %}
+              <tr>
+                <td class="fw-bold">#{{ item.row_idx }}</td>
+                <td><span class="badge bg-light text-dark border fw-normal">{{ item.rvt_tipo_visita or item.visit_result }}</span></td>
+                <td>{{ item.visita_fecha or item.visit_date }}</td>
+                <td><div class="small fw-semibold">{{ item.visita_funcionario or item.rvt_funcionario_firma_nombre }}</div></td>
+                <td>
+                  {% set debt_status = item.debt_label or item.deuda_estado %}
+                  <span class="badge {{ 'bg-danger-subtle text-danger-emphasis' if debt_status == 'ADEUDA' else 'bg-success-subtle text-success-emphasis' }}">
+                    {{ debt_status }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <a class="btn btn-outline-dark btn-sm rounded-pill" href="{{ url_for('admin.visit_print_view', dataset_id=dataset.id, row_idx=item.row_idx) }}">
+                    <i class="bi bi-file-pdf me-1"></i>Ver RVT
+                  </a>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="6" class="text-center py-4 text-muted">No se han registrado visitas en este dataset todavía.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Modal de Carga Masiva -->
+<div class="modal fade" id="bulkMediaModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg rounded-4">
+      <div class="modal-header border-0 pb-0 px-4 pt-4">
+        <h5 class="modal-title fw-bold">Carga Masiva de Multimedia</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <form id="bulkMediaForm">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <p class="text-muted small mb-4">Sube un archivo ZIP con fotos o documentos. El sistema los asociará automáticamente a los registros.</p>
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold small">Archivo ZIP</label>
+            <input type="file" name="zip_file" id="zip_file" class="form-control" accept=".zip" required>
+          </div>
+          
+          <div class="mb-4">
+            <label class="form-label fw-bold small">Criterio de Mapeo</label>
+            <select name="mapping_type" class="form-select">
+              <option value="row_idx">Número de Fila (en el nombre del archivo)</option>
+              <option value="nit">NIT / Identificación (en el nombre del archivo)</option>
+              <option value="cedula">Cédula del Propietario</option>
+            </select>
+            <div class="form-text mt-2 small">Ejemplo: Si eliges "NIT", un archivo llamado <code>900123456_foto.jpg</code> se asociará al predio con ese NIT.</div>
+          </div>
+          
+          <div id="bulkResults" class="d-none alert alert-info py-2 small"></div>
+
+          <button type="submit" class="btn btn-primary w-100 rounded-pill fw-bold py-2 shadow-sm" id="bulkSubmitBtn">
+            <i class="bi bi-upload me-2"></i>Procesar ZIP
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script id="visit-context-data" type="application/json">
+{
+  "datasetId": {{ dataset.id }},
+  "queueRows": {{ queue|tojson }},
+  "visitRecords": {{ visit_records|tojson }}
+}
+</script>
+<script>
+  (function() {
+    const dataNode = document.getElementById('visit-context-data');
+    if (dataNode) {
+      const data = JSON.parse(dataNode.textContent);
+      window.datasetId = data.datasetId;
+      window.queueRows = data.queueRows;
+      window.visitRecords = data.visitRecords;
+    }
+  })();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="{{ url_for('static', filename='js/visits.js') }}"></script>
+{% endblock %}

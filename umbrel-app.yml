@@ -1,0 +1,12 @@
+manifestVersion: 1
+id: geobusca-territorial
+name: GeoBusca Territorial
+version: "2.0.0"
+tagline: Geocodificación y análisis territorial
+description: >
+  Plataforma para la gestión de datos geoespaciales, geocodificación masiva 
+  y visualización de capas territoriales (barrios, veredas, comunas). 
+  Ideal para análisis de bases de datos municipales.
+developer: Camilo
+website: https://github.com/camilo152893/geobusca-territorial
+port: 8000

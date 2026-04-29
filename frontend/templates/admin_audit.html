@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Registro de Auditoría{% endblock %}
+
+{% block content %}
+<div class="container-fluid animate-in">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-0 fw-bold">Registro de Auditoría</h1>
+            <p class="text-muted">Seguimiento detallado de todas las acciones en el sistema.</p>
+        </div>
+        
+        <form class="d-flex gap-2" id="filter-form">
+            <select name="user_id" class="form-select rounded-3 shadow-sm" style="width: 200px;">
+                <option value="">Todos los Usuarios</option>
+                {% for u in users %}
+                    <option value="{{ u.id }}" {% if selected_user == u.id|string %}selected{% endif %}>{{ u.full_name }}</option>
+                {% endfor %}
+            </select>
+            <select name="dataset_id" class="form-select rounded-3 shadow-sm" style="width: 200px;">
+                <option value="">Todos los Datasets</option>
+                {% for d in datasets %}
+                    <option value="{{ d.id }}" {% if selected_dataset == d.id|string %}selected{% endif %}>{{ d.original_filename }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-outline-primary rounded-3">Filtrar</button>
+        </form>
+    </div>
+
+    <div class="card border-0 shadow-sm rounded-4">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Fecha y Hora</th>
+                        <th>Usuario</th>
+                        <th>Acción</th>
+                        <th>Entidad</th>
+                        <th>Detalles</th>
+                        <th class="text-end pe-4">Cambios</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4 text-muted small">
+                            {{ log.created_at }}
+                        </td>
+                        <td>
+                            <div class="fw-bold">{{ log.full_name or 'Sistema' }}</div>
+                            <div class="small text-muted">{{ log.email or '' }}</div>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary text-uppercase px-2" style="font-size: 0.7rem;">
+                                {{ log.action }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="small fw-semibold">{{ log.entity_type }}</div>
+                            <div class="text-muted" style="font-size: 0.75rem;">ID: {{ log.entity_id }}</div>
+                        </td>
+                        <td class="small">
+                            {% for key, val in log.details.items() %}
+                                {% if key != '_diff' %}
+                                    <div class="mb-1"><span class="text-muted">{{ key }}:</span> {{ val }}</div>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td class="text-end pe-4">
+                            {% if log.details._diff %}
+                            <button class="btn btn-outline-info btn-sm rounded-pill px-3" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#diff-{{ log.id }}">
+                                Ver Diff
+                            </button>
+                            {% else %}
+                            <span class="text-muted small">—</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if log.details._diff %}
+                    <tr class="collapse" id="diff-{{ log.id }}">
+                        <td colspan="6" class="bg-light p-4">
+                            <div class="card border-0 shadow-sm rounded-3">
+                                <div class="card-body">
+                                    <h6 class="fw-bold mb-3 small text-uppercase text-info">Cambios Detectados</h6>
+                                    <div class="row g-2">
+                                        {% for field, change in log.details._diff.items() %}
+                                        <div class="col-md-6">
+                                            <div class="p-2 border rounded-3 bg-white">
+                                                <div class="fw-bold small mb-1">{{ field }}</div>
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <span class="text-danger text-decoration-line-through small">{{ change.from }}</span>
+                                                    <i class="bi bi-arrow-right text-muted"></i>
+                                                    <span class="text-success fw-bold small">{{ change.to }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .bg-light { background-color: #f8f9fa !important; }
+    .animate-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+{% endblock %}

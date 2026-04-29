@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  geobusca:
+    build: .
+    container_name: geobusca-territorial
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./backend/geobusca_data:/app/backend/geobusca_data
+    environment:
+      - FLASK_HOST=0.0.0.0
+      - FLASK_DEBUG=0
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

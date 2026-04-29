@@ -1,0 +1,67 @@
+
+{% extends 'base.html' %}
+{% block title %}Panel de sincronización{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="h4 mb-0">Panel de sincronización</h1>
+  <form class="d-flex gap-2" method="get">
+    <select class="form-select" name="user_id" style="min-width: 260px;">
+      <option value="">Todos los funcionarios</option>
+      {% for item in users %}
+      <option value="{{ item.id }}" {% if selected_user|int == item.id %}selected{% endif %}>{{ item.full_name or item.email }} · {{ item.role }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary">Filtrar</button>
+  </form>
+</div>
+<div class="row g-3 mb-4">
+  {% for group in grouped %}
+  <div class="col-lg-4">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <div class="fw-semibold">{{ group.label }}</div>
+            <div class="small text-muted">{{ group.role }}</div>
+          </div>
+          <a class="btn btn-outline-success btn-sm" href="{{ url_for('staff_panel', user_id=group.user_id) if group.user_id else '#' }}">Panel operativo</a>
+        </div>
+        <div class="mt-3 small d-flex flex-wrap gap-2">
+          <span class="badge text-bg-success">Sincronizados: {{ group.synced }}</span>
+          <span class="badge text-bg-warning">Conflictos: {{ group.conflict }}</span>
+          <span class="badge text-bg-danger">Errores: {{ group.error }}</span>
+          <span class="badge text-bg-secondary">En cola: {{ group.queued }}</span>
+          <span class="badge text-bg-primary">Sincronizando: {{ group.syncing }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12"><div class="alert alert-light border">No hay eventos de sincronización todavía.</div></div>
+  {% endfor %}
+</div>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h2 class="h5">Bitácora de sincronización</h2>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead><tr><th>Fecha</th><th>Funcionario</th><th>Fila</th><th>Acción</th><th>Estado</th><th>Intentos</th><th>Dispositivo</th><th>Error</th></tr></thead>
+        <tbody>
+          {% for item in events %}
+          <tr>
+            <td>{{ item.created_at }}</td>
+            <td>{{ item.full_name or item.email or 'Sin usuario' }}</td>
+            <td>{{ item.row_idx }}</td>
+            <td>{{ item.action }}</td>
+            <td><span class="badge {{ 'text-bg-success' if item.status == 'synced' else ('text-bg-warning' if item.status == 'conflict' else ('text-bg-danger' if item.status == 'error' else ('text-bg-primary' if item.status == 'syncing' else 'text-bg-secondary'))) }}">{{ item.status }}</span></td>
+            <td>{{ item.attempts }}</td>
+            <td class="small text-muted">{{ item.device_label }}</td>
+            <td class="small text-danger">{{ item.error_message }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

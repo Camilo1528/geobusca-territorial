@@ -1,0 +1,4 @@
+"**/geobusca_data/" 
+"*.log" 
+"**/__pycache__/" 
+".env" 

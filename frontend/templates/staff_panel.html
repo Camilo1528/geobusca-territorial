@@ -1,0 +1,91 @@
+
+{% extends 'base.html' %}
+{% block title %}Panel operativo{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="h4 mb-0">Panel operativo por funcionario</h1>
+    <div class="text-muted small">{{ target_user.full_name if target_user else 'Sin usuario' }} · {{ target_user.email if target_user else '' }}</div>
+  </div>
+  {% if current_user and current_user.role in ['revisor', 'admin'] %}
+  <form class="d-flex gap-2" method="get">
+    <select class="form-select" name="user_id" style="min-width: 280px;">
+      {% for item in all_users %}
+      <option value="{{ item.id }}" {% if selected_user_id == item.id %}selected{% endif %}>{{ item.full_name or item.email }} · {{ item.role }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-primary">Ver</button>
+  </form>
+  {% endif %}
+</div>
+<div class="row g-3 mb-4">
+  {% for label, value in [('Datasets', metrics.datasets), ('Pendientes visita', metrics.pendientes_visita), ('Realizadas', metrics.realizadas), ('Adeudan', metrics.adeudan), ('Sincronizados', metrics.sincronizados), ('Errores sync', metrics.errores_sync), ('Conflictos', metrics.conflictos_pendientes)] %}
+  <div class="col-md-3 col-lg-2">
+    <div class="card shadow-sm h-100"><div class="card-body"><div class="small text-muted">{{ label }}</div><div class="display-6 fw-semibold">{{ value }}</div></div></div>
+  </div>
+  {% endfor %}
+</div>
+<div class="row g-3">
+  <div class="col-lg-7">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <h2 class="h5 mb-0">Pendientes prioritarios</h2>
+          {% if current_user and current_user.role in ['revisor','admin'] %}<span class="badge text-bg-info">Reasignación masiva disponible</span>{% endif %}
+        </div>
+        <form method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          {% if current_user and current_user.role in ['revisor','admin'] %}
+          <div class="row g-2 align-items-end mb-3">
+            <div class="col-lg-4"><label class="form-label">Reasignar a</label><select class="form-select" name="assigned_to">{% for item in all_users %}<option value="{{ item.id }}">{{ item.full_name or item.email }} · {{ item.role }}</option>{% endfor %}</select></div>
+            <div class="col-lg-3"><label class="form-label">Fecha agenda</label><input class="form-control" type="date" name="agenda_date"></div>
+            <div class="col-lg-3"><label class="form-label">Grupo/ruta</label><input class="form-control" name="route_group" placeholder="Ruta Norte AM"></div>
+            <div class="col-lg-2"><div class="form-check mt-4 pt-2"><input class="form-check-input" type="checkbox" name="optimize_route" value="1" id="staff_optimize_route"><label class="form-check-label small" for="staff_optimize_route">Optimizar</label></div></div>
+            <div class="col-lg-12"><button class="btn btn-outline-primary">Reasignar seleccionadas</button></div>
+          </div>
+          {% endif %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>{% if current_user and current_user.role in ['revisor','admin'] %}<input type="checkbox" onclick="document.querySelectorAll('.pick-pending').forEach(cb => cb.checked = this.checked)">{% endif %}</th><th>Dataset</th><th>Fila</th><th>Nombre</th><th>Dirección</th><th>Territorio</th><th>Deuda</th><th></th></tr></thead>
+              <tbody>
+                {% for item in pending_rows %}
+                <tr>
+                  <td>{% if current_user and current_user.role in ['revisor','admin'] %}<input class="form-check-input pick-pending" type="checkbox" name="selected_visit" value="{{ item.dataset_id }}:{{ item.row_idx }}">{% endif %}</td>
+                  <td class="small">{{ item.dataset_name }}</td>
+                  <td>{{ item.row_idx }}</td>
+                  <td>{{ item.nom_establec }}</td>
+                  <td class="small">{{ item.direccion }}</td>
+                  <td class="small">{{ item.territorio_principal_nombre or item.barrio or item.vereda or item.comuna or item.corregimiento }}</td>
+                  <td><span class="badge {{ 'text-bg-danger' if item.deuda_estado in ['ADEUDA','MOROSO','PENDIENTE'] else 'text-bg-light' }}">{{ item.deuda_estado or '—' }}</span></td>
+                  <td><a class="btn btn-outline-primary btn-sm" href="{{ url_for('visits.visits_view', dataset_id=item.dataset_id) }}">Abrir</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-muted">No hay pendientes prioritarios.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h2 class="h5">Últimas visitas</h2>
+        <div class="list-group list-group-flush small">
+          {% for item in recent_visits %}
+          <div class="list-group-item px-0">
+            <div class="fw-semibold">Fila {{ item.row_idx }} · {{ item.visit_status or 'REALIZADA' }}</div>
+            <div class="text-muted">{{ item.visit_date or item.updated_at }}</div>
+            <div>{{ item.official_name or item.visit_result or 'Visita registrada' }}</div>
+          </div>
+          {% else %}
+          <div class="text-muted">Todavía no hay visitas registradas.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
