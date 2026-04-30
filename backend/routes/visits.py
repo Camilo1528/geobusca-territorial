@@ -20,10 +20,16 @@ visits_bp = Blueprint("visits", __name__)
 def visits_view_all():
     user = current_user()
     with get_conn() as conn:
-        dataset = conn.execute('SELECT id FROM datasets WHERE user_id=? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
+        # Si es admin/revisor, ver el último dataset de cualquier usuario, si no, solo los propios
+        if user.get('role') in ['admin', 'revisor']:
+            dataset = conn.execute('SELECT id FROM datasets ORDER BY created_at DESC LIMIT 1').fetchone()
+        else:
+            dataset = conn.execute('SELECT id FROM datasets WHERE user_id=? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
+    
     if dataset:
         return redirect(url_for('visits.visits_view', dataset_id=dataset['id']))
-    flash('No tienes datasets cargados para ver visitas.', 'info')
+    
+    flash('No hay datasets disponibles para ver visitas.', 'info')
     return redirect(url_for('dashboard.dashboard'))
 
 
