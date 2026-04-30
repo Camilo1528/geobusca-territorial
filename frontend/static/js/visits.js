@@ -57,8 +57,11 @@ function showStep(step) {
   const targetStep = Math.max(1, Math.min(6, Number(step) || 1));
   
   // Only validate if moving forward
-  if (targetStep > currentStep && !validateCurrentStep()) {
-    return;
+  if (targetStep > currentStep) {
+    if (!validateCurrentStep()) {
+      console.error("Validación fallida en el paso:", currentStep);
+      return;
+    }
   }
 
   currentStep = targetStep;
@@ -265,8 +268,9 @@ document.getElementById('newVisitBtn')?.addEventListener('click', () => {
   
   // Asignar índice para fila nueva (al final del dataset real)
 
-  const nextIdx = Number(window.totalRows || 0);
+  const nextIdx = (typeof window.totalRows !== 'undefined' && window.totalRows !== null) ? Number(window.totalRows) : 0;
   rowInput.value = nextIdx;
+  console.log("Iniciando nueva visita en fila index:", nextIdx);
   
   // Limpiar campos GPS
   visit_latitude.value = '';

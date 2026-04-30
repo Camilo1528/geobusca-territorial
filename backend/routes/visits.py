@@ -17,28 +17,7 @@ import backend.services.event_service as event_service
 import pandas as pd
 
 
-visits_bp = Blueprint("visits", __name__)
-
-@visits_bp.route('/visits/all')
-@login_required
-def visits_view_all():
-    user = current_user()
-    with get_conn() as conn:
-        # Si es admin/revisor, ver el último dataset de cualquier usuario, si no, solo los propios
-        if has_role(user, 'revisor'):
-            dataset = conn.execute('SELECT id FROM datasets ORDER BY created_at DESC LIMIT 1').fetchone()
-        else:
-            dataset = conn.execute('SELECT id FROM datasets WHERE user_id=? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
-
-    
-    if dataset:
-        return redirect(url_for('visits.visits_view', dataset_id=dataset['id']))
-    
-    flash('No hay datasets disponibles para ver visitas.', 'info')
-    return redirect(url_for('dashboard.dashboard'))
-
-
-# Reemplazamos los decoradores y funciones importándolos de app_main o servicios
+# Helper functions and constants from app_main and services
 login_required = app_main.login_required
 module_required = app_main.module_required
 role_required = app_main.role_required
@@ -89,6 +68,38 @@ _build_visit_pdf_bytes = app_main._build_visit_pdf_bytes
 create_job = app_main.create_job
 run_pdf_job_wrapper = app_main.run_pdf_job_wrapper
 start_background_job = app_main.job_service.start_background_job
+
+
+visits_bp = Blueprint("visits", __name__)
+
+@visits_bp.route('/visits/all')
+@login_required
+def visits_view_all():
+    user = current_user()
+    with get_conn() as conn:
+        # Si es admin/revisor, ver el último dataset de cualquier usuario, si no, solo los propios
+        if has_role(user, 'revisor'):
+            dataset = conn.execute('SELECT id FROM datasets ORDER BY created_at DESC LIMIT 1').fetchone()
+        else:
+            dataset = conn.execute('SELECT id FROM datasets WHERE user_id=? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
+
+    # Si no hay datasets, creamos uno maestro automáticamente para permitir el acceso
+    if not dataset:
+        with get_conn() as conn:
+            stored = f"master_{user['id']}_auto.csv"
+            path = UPLOAD_DIR / stored
+            # Crear CSV inicial con estructura mínima
+            pd.DataFrame(columns=['cedula', 'matricula', 'razon_social', 'direccion']).to_csv(path, index=False)
+            
+            cur = conn.execute(
+                'INSERT INTO datasets (user_id, original_filename, stored_filename, provider, city, region, row_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                (user['id'], "MAESTRO_UNIFICADO", stored, 'nominatim', DEFAULT_CITY, DEFAULT_REGION, 0, now_iso()),
+            )
+            dataset_id = cur.lastrowid
+            return redirect(url_for('visits.visits_view', dataset_id=dataset_id))
+    
+    return redirect(url_for('visits.visits_view', dataset_id=dataset['id']))
+
 
 @visits_bp.route('/visits/<int:dataset_id>')
 @login_required

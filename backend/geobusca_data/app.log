@@ -1,0 +1,103 @@
+2026-04-30 07:43:26,959 - INFO - Admin email updated to camilo152893@gmail.com for 2FA.
+2026-04-30 07:43:26,960 - INFO - SMTP settings updated in database.
+2026-04-30 07:47:12,772 - INFO - SMTP settings updated in database.
+2026-04-30 07:47:13,169 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:8000
+ * Running on http://192.168.1.29:8000
+2026-04-30 07:47:13,170 - INFO - [33mPress CTRL+C to quit[0m
+2026-04-30 07:47:13,173 - INFO -  * Restarting with stat
+2026-04-30 07:47:16,761 - INFO - SMTP settings updated in database.
+2026-04-30 07:47:16,954 - WARNING -  * Debugger is active!
+2026-04-30 07:47:16,965 - INFO -  * Debugger PIN: 867-803-230
+2026-04-30 07:48:25,280 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:25] "[32mGET / HTTP/1.1[0m" 302 -
+2026-04-30 07:48:25,394 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:25] "GET /login HTTP/1.1" 200 -
+2026-04-30 07:48:25,474 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:25] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:48:25,785 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:25] "GET /static/css/styles.css HTTP/1.1" 200 -
+2026-04-30 07:48:25,788 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:25] "GET /static/img/rionegro_logo.svg HTTP/1.1" 200 -
+2026-04-30 07:48:26,162 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2026-04-30 07:48:26,212 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "GET /static/sw.js HTTP/1.1" 200 -
+2026-04-30 07:48:26,281 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "GET /static/css/visits.css HTTP/1.1" 200 -
+2026-04-30 07:48:26,288 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "[32mGET / HTTP/1.1[0m" 302 -
+2026-04-30 07:48:26,316 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:48:26,337 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "GET /static/js/visits.js HTTP/1.1" 200 -
+2026-04-30 07:48:26,401 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:26] "GET /login HTTP/1.1" 200 -
+2026-04-30 07:48:36,124 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:36] "POST /login HTTP/1.1" 200 -
+2026-04-30 07:48:36,179 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:36] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:48:36,196 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:36] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:48:36,198 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:36] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:48:51,880 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:51] "[32mPOST /login HTTP/1.1[0m" 302 -
+2026-04-30 07:48:51,946 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:51] "GET /verify_2fa HTTP/1.1" 200 -
+2026-04-30 07:48:52,035 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:52] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:48:52,044 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:52] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:48:52,044 - INFO - 127.0.0.1 - - [30/Apr/2026 07:48:52] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:49:11,874 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:11] "[32mPOST /verify_2fa HTTP/1.1[0m" 302 -
+2026-04-30 07:49:11,897 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:11] "[32mGET /dashboard HTTP/1.1[0m" 302 -
+2026-04-30 07:49:11,964 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:11] "GET /change_password HTTP/1.1" 200 -
+2026-04-30 07:49:12,075 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:12] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:49:12,094 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:12] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:49:12,102 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:12] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:49:28,587 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:28] "[32mPOST /change_password HTTP/1.1[0m" 302 -
+2026-04-30 07:49:28,696 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:28] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:49:28,825 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:28] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:49:28,827 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:28] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:49:28,828 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:28] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:49:29,246 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:29] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:49:29,254 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:29] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:49:34,873 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:34] "[32mGET /visits/all HTTP/1.1[0m" 302 -
+2026-04-30 07:49:34,921 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:34] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:49:35,087 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:35] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:49:35,095 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:35] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:49:35,103 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:35] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:49:35,438 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:35] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:49:35,474 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:35] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:49:50,356 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "[32mGET /visits/all HTTP/1.1[0m" 302 -
+2026-04-30 07:49:50,423 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:49:50,535 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:49:50,541 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:49:50,543 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:49:50,841 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:49:50,856 - INFO - 127.0.0.1 - - [30/Apr/2026 07:49:50] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:50:09,625 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:09] "[32mGET /visits/1 HTTP/1.1[0m" 302 -
+2026-04-30 07:50:09,693 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:09] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:50:09,787 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:09] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:50:09,798 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:09] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:50:09,815 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:09] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:50:10,056 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:10] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:50:10,069 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:10] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:50:20,124 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:20] "[33mGET /visits HTTP/1.1[0m" 404 -
+2026-04-30 07:50:34,866 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:34] "[32mGET /visits/1 HTTP/1.1[0m" 302 -
+2026-04-30 07:50:34,933 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:34] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:50:35,020 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:35] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:50:35,030 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:35] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:50:35,055 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:35] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:50:35,259 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:35] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:50:35,267 - INFO - 127.0.0.1 - - [30/Apr/2026 07:50:35] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:51:38,423 - INFO -  * Detected change in 'C:\\proyecto geo\\backend\\routes\\visits.py', reloading
+2026-04-30 07:51:38,851 - INFO -  * Restarting with stat
+2026-04-30 07:51:43,144 - INFO - SMTP settings updated in database.
+2026-04-30 07:51:43,448 - WARNING -  * Debugger is active!
+2026-04-30 07:51:43,455 - INFO -  * Debugger PIN: 867-803-230
+2026-04-30 07:52:14,920 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:14] "[32mGET /visits/all HTTP/1.1[0m" 302 -
+2026-04-30 07:52:15,135 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:15] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:52:15,243 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:15] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:52:15,550 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:15] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:52:15,553 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:15] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:52:15,863 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:15] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:52:15,866 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:15] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:52:22,779 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:22] "[32mGET /visits/1 HTTP/1.1[0m" 302 -
+2026-04-30 07:52:22,850 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:22] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:52:22,963 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:22] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:52:22,983 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:22] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:52:22,985 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:22] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:52:23,343 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:23] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:52:23,353 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:23] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:52:28,979 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:28] "[32mGET /visits/all HTTP/1.1[0m" 302 -
+2026-04-30 07:52:29,048 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:29] "GET /dashboard HTTP/1.1" 200 -
+2026-04-30 07:52:29,236 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:29] "[36mGET /static/css/styles.css HTTP/1.1[0m" 304 -
+2026-04-30 07:52:29,265 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:29] "[36mGET /static/img/rionegro_logo.svg HTTP/1.1[0m" 304 -
+2026-04-30 07:52:29,281 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:29] "GET /manifest.webmanifest HTTP/1.1" 200 -
+2026-04-30 07:52:29,498 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:29] "GET /dashboard/map_points HTTP/1.1" 200 -
+2026-04-30 07:52:29,533 - INFO - 127.0.0.1 - - [30/Apr/2026 07:52:29] "GET /dashboard/map_layers HTTP/1.1" 200 -
+2026-04-30 07:53:17,734 - INFO -  * Detected change in 'C:\\proyecto geo\\backend\\routes\\visits.py', reloading
+2026-04-30 07:53:18,032 - INFO -  * Restarting with stat
