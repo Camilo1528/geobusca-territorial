@@ -367,7 +367,6 @@ def save_visit(dataset_id: int):
             row_idx=row_idx)
             
         # --- LÓGICA DE CORREO AUTOMÁTICO CON PDF ADJUNTO ---
-        # Priorizar el correo ingresado en el RVT
         email_to = (payload.get('rvt_correo_electronico', '') 
                     or payload.get('correo_envio_destino', '')
                     or user.get('email') or '').strip()
@@ -375,7 +374,10 @@ def save_visit(dataset_id: int):
         email_sent = False
         email_error = ''
         
-        if is_new_entry and email_to:
+        tipo_visita = payload.get('rvt_tipo_visita', '').strip()
+        is_new_establishment = (tipo_visita == 'Nuevo Establecimiento' or is_new_entry)
+        
+        if is_new_establishment and email_to:
             subject = build_visit_email_subject(visit_context)
             html_body = build_visit_email_html(visit_context, print_url)
             text_body = build_visit_email_text(visit_context, print_url)
@@ -685,7 +687,10 @@ def api_visit_sync_save(dataset_id: int):
         email_sent = False
         email_error = ''
         
-        if is_new_entry and email_to:
+        tipo_visita = payload.get('rvt_tipo_visita', '').strip()
+        is_new_establishment = (tipo_visita == 'Nuevo Establecimiento' or is_new_entry)
+        
+        if is_new_establishment and email_to:
             subject = build_visit_email_subject(visit_context)
             html_body = build_visit_email_html(visit_context, print_url)
             text_body = build_visit_email_text(visit_context, print_url)
