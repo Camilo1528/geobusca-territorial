@@ -17,42 +17,45 @@ def build_visit_pdf_bytes(dataset: Dict[str, Any], visit: Dict[str, Any]) -> byt
     buffer = BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
-    margin = 50
+    margin = 40
     y = height - margin
 
     def draw_section_header(title: str):
         nonlocal y
-        if y < 80:
+        if y < 100:
             pdf.showPage()
             y = height - margin
-        y -= 10
-        pdf.setFillColor(colors.HexColor('#f8f9fa'))
-        pdf.rect(margin - 5, y - 5, width - (2 * margin) + 10, 20, fill=1, stroke=0)
+        y -= 15
         pdf.setFillColor(colors.HexColor('#2c3e50'))
-        pdf.setFont('Helvetica-Bold', 11)
-        pdf.drawString(margin, y, title.upper())
+        pdf.rect(margin, y - 5, width - (2 * margin), 18, fill=1, stroke=0)
+        pdf.setFillColor(colors.white)
+        pdf.setFont('Helvetica-Bold', 10)
+        pdf.drawString(margin + 10, y, title.upper())
+        pdf.setFillColor(colors.black)
         y -= 25
 
-    def draw_field(label: str, value: Any, x_offset: int = 0, width_val: int = 250):
+    def draw_row(fields: list[tuple[str, Any]], x_start: int = margin, col_w: int = 170):
         nonlocal y
-        text_value = _clean_display(value)
-        pdf.setFont('Helvetica-Bold', 9)
-        pdf.setFillColor(colors.HexColor('#7f8c8d'))
-        pdf.drawString(margin + x_offset, y, f'{label}:')
-        pdf.setFont('Helvetica', 10)
-        pdf.setFillColor(colors.black)
-        pdf.drawString(margin + x_offset + 100, y, text_value[:80])
+        curr_x = x_start
+        max_y_drop = 15
+        for label, value in fields:
+            pdf.setFont('Helvetica-Bold', 8)
+            pdf.setFillColor(colors.grey)
+            pdf.drawString(curr_x, y, f"{label}:")
+            pdf.setFont('Helvetica', 9)
+            pdf.setFillColor(colors.black)
+            val_s = _clean_display(value)
+            # Truncate if too long for the column
+            pdf.drawString(curr_x, y - 10, val_s[:35])
+            curr_x += col_w
+        y -= 30
 
-    def add_image(image_source: str, label: str, box_w: int = 200, box_h: int = 150):
+    def add_image(image_source: str, label: str, box_w: int = 240, box_h: int = 160, x_pos: int = margin):
         nonlocal y
-        if not image_source:
-            return
-        
-        # Determine path
+        if not image_source: return
         img_path = None
         if isinstance(image_source, str):
             if image_source.startswith('http'):
-                # Handle relative URL /visit_media/filename
                 filename = os.path.basename(image_source)
                 img_path = Path('geobusca_data') / 'visit_media' / filename
             else:
@@ -62,128 +65,133 @@ def build_visit_pdf_bytes(dataset: Dict[str, Any], visit: Dict[str, Any]) -> byt
 
         if img_path and img_path.exists():
             try:
-                if y < box_h + 40:
+                if y < box_h + 30:
                     pdf.showPage()
                     y = height - margin
-                
-                pdf.setFont('Helvetica-Bold', 9)
-                pdf.drawString(margin, y, label)
-                y -= (box_h + 10)
-                pdf.drawImage(str(img_path), margin, y, width=box_w, height=box_h, preserveAspectRatio=True, anchor='sw')
-                y -= 20
-            except Exception:
-                pdf.drawString(margin, y, f"[Error cargando {label}]")
-                y -= 20
+                pdf.setFont('Helvetica-Bold', 8)
+                pdf.drawString(x_pos, y, label)
+                y -= (box_h + 5)
+                pdf.drawImage(str(img_path), x_pos, y, width=box_w, height=box_h, preserveAspectRatio=True, anchor='sw')
+                return True
+            except: pass
+        return False
 
-    # Header
-    pdf.setTitle(f'RVT_{dataset.get("id")}_{visit.get("row_idx")}')
-    
-    # Logo Placeholder or Brand
-    pdf.setFont('Helvetica-Bold', 16)
-    pdf.setFillColor(colors.HexColor('#1a5f7a'))
-    pdf.drawString(margin, y, 'GeoBusca Territorial')
-    pdf.setFont('Helvetica', 10)
-    pdf.setFillColor(colors.grey)
-    pdf.drawRightString(width - margin, y, 'Registro de Visita Tributaria (RVT)')
-    y -= 15
-    pdf.setStrokeColor(colors.HexColor('#1a5f7a'))
-    pdf.setLineWidth(2)
-    pdf.line(margin, y, width - margin, y)
-    y -= 30
-
-    # Section 1: Informativos
-    draw_section_header('Datos de la Visita')
-    draw_field('Dataset ID', dataset.get('id'), 0)
-    draw_field('Fila', visit.get('row_idx'), 250)
-    y -= 18
-    draw_field('Tipo Visita', visit.get('rvt_tipo_visita') or visit.get('visita_estado'), 0)
-    draw_field('Causal', visit.get('visit_result') or visit.get('visita_resultado'), 250)
-    y -= 18
-    draw_field('Fecha', visit.get('visita_fecha'), 0)
-    draw_field('Hora', visit.get('visita_hora'), 250)
-    y -= 18
-    draw_field('Funcionario', visit.get('visita_funcionario') or visit.get('rvt_funcionario_firma_nombre'), 0)
-    y -= 30
-
-    # Section 2: Contribuyente
-    draw_section_header('Datos del Contribuyente')
-    draw_field('Razón Social', visit.get('rvt_razon_social') or visit.get('nom_establec'), 0)
-    y -= 18
-    draw_field('NIT / C.C.', visit.get('rvt_nit_cc'), 0)
-    draw_field('Atendido por', visit.get('rvt_recibe_nombre'), 250)
-    y -= 18
-    draw_field('Dirección', visit.get('rvt_direccion_establecimiento') or visit.get('direccion'), 0)
-    y -= 18
-    draw_field('Barrio/Vereda', visit.get('barrio') or visit.get('vereda'), 0)
-    draw_field('Municipio', visit.get('rvt_municipio') or dataset.get('city'), 250)
-    y -= 30
-
-    # Section 3: Cartera y GPS
-    draw_section_header('Validación de Cartera y Ubicación')
-    draw_field('Estado Deuda', visit.get('deuda_estado'), 0)
-    draw_field('Monto', visit.get('deuda_monto'), 250)
-    y -= 18
-    draw_field('Latitud', visit.get('visit_latitude'), 0)
-    draw_field('Longitud', visit.get('visit_longitude'), 250)
-    y -= 18
-    draw_field('Precisión GPS', f"{visit.get('visit_gps_accuracy', '-')} m", 0)
-    draw_field('Anomalía GPS', 'SÍ' if visit.get('has_gps_anomaly') else 'NO', 250)
-    y -= 30
-
-    # Section 4: Observaciones
-    draw_section_header('Observaciones')
-    pdf.setFont('Helvetica', 10)
-    obs = _clean_display(visit.get('visita_observaciones'))
-    text_obj = pdf.beginText(margin, y)
-    text_obj.setFont('Helvetica', 10)
-    text_obj.setLeading(14)
-    # Simple wrap
-    words = obs.split()
-    line = ""
-    for word in words:
-        if len(line + word) > 90:
-            text_obj.textLine(line)
-            line = word + " "
-            y -= 14
-        else:
-            line += word + " "
-    text_obj.textLine(line)
+    # Header con Logo Textual
+    pdf.setFont('Helvetica-Bold', 14)
+    pdf.drawString(margin, y, "ALCALDÍA DE RIONEGRO")
+    pdf.setFont('Helvetica', 9)
+    pdf.drawRightString(width - margin, y, "Registro de Visita Tributaria - RVT")
+    y -= 12
+    pdf.setFont('Helvetica', 8)
+    pdf.drawString(margin, y, "Secretaría de Hacienda - Subsecretaría de Rentas")
     y -= 20
-    pdf.drawText(text_obj)
-    y -= 30
+    pdf.line(margin, y, width - margin, y)
+    y -= 20
 
-    # Section 5: Firmas y Evidencias
-    draw_section_header('Evidencias y Firmas')
+    # SECCIÓN I: DATOS INFORMATIVOS
+    draw_section_header("I. DATOS INFORMATIVOS")
+    draw_row([
+        ("Tipo Visita", visit.get('rvt_tipo_visita') or visit.get('visita_estado')),
+        ("Código Estab.", visit.get('rvt_codigo_establecimiento')),
+        ("Fecha/Hora", f"{visit.get('visita_fecha')} {visit.get('visita_hora')}")
+    ])
+    draw_row([
+        ("Atendido por", visit.get('rvt_recibe_nombre')),
+        ("Documento", f"{visit.get('rvt_recibe_tipo_documento')} {visit.get('rvt_recibe_numero_documento')}"),
+        ("Cargo", visit.get('rvt_recibe_cargo'))
+    ])
+
+    # SECCIÓN II: DATOS DEL CONTRIBUYENTE
+    draw_section_header("II. DATOS DEL CONTRIBUYENTE")
+    draw_row([
+        ("Razón Social", visit.get('rvt_razon_social') or visit.get('nom_establec')),
+        ("NIT / C.C.", visit.get('rvt_nit_cc')),
+        ("Avisos y Tableros", visit.get('rvt_avisos_tableros'))
+    ])
+    draw_row([
+        ("Dirección Estab.", visit.get('rvt_direccion_establecimiento') or visit.get('direccion')),
+        ("Municipio", visit.get('rvt_municipio')),
+        ("Departamento", visit.get('rvt_departamento'))
+    ])
+    draw_row([
+        ("Dirección Cobro", visit.get('rvt_direccion_cobro')),
+        ("Teléfono", visit.get('rvt_telefono_movil') or visit.get('rvt_telefono_fijo')),
+        ("Correo", visit.get('rvt_correo_electronico'))
+    ])
+    draw_row([
+        ("Sector Econ.", visit.get('rvt_sector_economico')),
+        ("Inicio Actividades", visit.get('rvt_fecha_inicio_actividades')),
+        ("CIIU Prin.", visit.get('rvt_codigo_ciiu_1'))
+    ])
+    draw_row([
+        ("Actividad", visit.get('rvt_descripcion_actividad'))
+    ])
+
+    # SECCIÓN III: REPRESENTACIÓN LEGAL
+    draw_section_header("III. REPRESENTACIÓN LEGAL")
+    draw_row([
+        ("Rep. Legal A", visit.get('rvt_rep_legal_a_nombre')),
+        ("ID", visit.get('rvt_rep_legal_a_identificacion')),
+        ("Correo", visit.get('rvt_rep_legal_a_correo'))
+    ])
+
+    # SECCIÓN IV: CARTERA Y GPS
+    draw_section_header("IV. VALIDACIÓN DE CARTERA Y UBICACIÓN")
+    draw_row([
+        ("Estado Deuda", visit.get('deuda_estado')),
+        ("Monto", visit.get('deuda_monto')),
+        ("Ref Deuda", visit.get('deuda_referencia'))
+    ])
+    draw_row([
+        ("Latitud", visit.get('visit_latitude')),
+        ("Longitud", visit.get('visit_longitude')),
+        ("Precisión GPS", f"{visit.get('visit_gps_accuracy')} m")
+    ])
+
+    # SECCIÓN V: OBSERVACIONES (Incluye Medición)
+    draw_section_header("V. OBSERVACIONES")
+    obs = _clean_display(visit.get('visita_observaciones'))
+    pdf.setFont('Helvetica', 9)
+    text_obj = pdf.beginText(margin + 5, y)
+    text_obj.setLeading(12)
+    for line in obs.split('\n'):
+        # Wrap simple
+        if len(line) > 110:
+            text_obj.textLine(line[:110])
+            text_obj.textLine(line[110:220])
+        else:
+            text_obj.textLine(line)
+        y -= 12
+    pdf.drawText(text_obj)
+    y -= 20
+
+    # SECCIÓN VI: EVIDENCIAS Y FIRMAS
+    draw_section_header("VI. EVIDENCIAS Y FIRMAS")
     
-    # Signatures
-    sig_y = y
-    add_image(visit.get('visit_signature_receiver'), 'Firma Contribuyente', 180, 100)
-    y_rec = y
-    y = sig_y
-    add_image(visit.get('visit_signature_officer'), 'Firma Funcionario', 180, 100, x_offset=250) # Need to adjust add_image for offset
-    # Wait, I'll keep them sequential for simplicity in this basic generator
-    y = min(y, y_rec)
+    # Fotos (Negocio)
+    start_y_media = y
+    has_photo = add_image(visit.get('visit_photo_establecimiento'), "EVIDENCIA: NEGOCIO / FACHADA", 240, 160)
+    y_photo = y
     
-    # Audit Hashes
+    # Firmas
+    y = start_y_media
+    add_image(visit.get('visit_signature_receiver'), "FIRMA: QUIEN RECIBE", 240, 100, x_pos=width/2 + 10)
+    y_sig1 = y
+    add_image(visit.get('visit_signature_officer'), "FIRMA: FUNCIONARIO", 240, 100, x_pos=width/2 + 10)
+    y_sig2 = y
+    
+    y = min(y_photo, y_sig2) - 20
+    
+    # Footer de Auditoría
     pdf.setFont('Helvetica-Oblique', 7)
     pdf.setFillColor(colors.grey)
-    if visit.get('visit_signature_receiver_hash'):
-        pdf.drawString(margin, y + 10, f"Hash Firma Recibe: {visit.get('visit_signature_receiver_hash')}")
-        y -= 10
-    if visit.get('visit_signature_officer_hash'):
-        pdf.drawString(margin, y + 10, f"Hash Firma Funcionario: {visit.get('visit_signature_officer_hash')}")
-        y -= 10
-
-    # Photos
-    y -= 20
-    add_image(visit.get('visit_photo_establecimiento'), 'Foto Establecimiento', 250, 180)
-    add_image(visit.get('visit_photo_documento'), 'Foto Documento/Evidencia', 250, 180)
-
-    # Footer
-    pdf.setFont('Helvetica', 8)
-    pdf.setFillColor(colors.grey)
-    pdf.drawCentredString(width / 2, 30, f"Generado por {dataset.get('brand_name', 'GeoBusca')} el {visit.get('updated_at', '-')}")
+    pdf.drawString(margin, y, f"Hash Auditoría Recibe: {visit.get('visit_signature_receiver_hash', 'N/A')}")
+    y -= 10
+    pdf.drawString(margin, y, f"Hash Auditoría Funcionario: {visit.get('visit_signature_officer_hash', 'N/A')}")
     
+    pdf.setFont('Helvetica', 8)
+    pdf.drawCentredString(width/2, 20, f"Este documento es un acta oficial generada por GeoBusca Territorial - Fecha: {visit.get('updated_at')}")
+
     pdf.save()
     return buffer.getvalue()
 

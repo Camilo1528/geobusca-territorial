@@ -302,8 +302,23 @@ def save_visit(dataset_id: int):
                 'warning')
             return redirect(url_for(
                 'visit_print_view', dataset_id=dataset_id, row_idx=row_idx, conflict='1'))
-        updated_df, result = apply_visit_update(
-            df, row_idx=row_idx, payload=payload)
+        # --- SOPORTE PARA REGISTROS NUEVOS (RVT DESDE CERO) ---
+        is_new_entry = (row_idx >= len(df))
+        
+        if is_new_entry:
+            # Crear una fila vacía con el esquema correcto
+            new_row = {col: '' for col in df.columns}
+            # Combinar con los datos del payload
+            for key, val in payload.items():
+                if key in new_row: new_row[key] = val
+            
+            # Anexar al dataframe
+            updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            result = type('obj', (object,), {'changed_fields': list(payload.keys())})
+            row_idx = len(updated_df) - 1 # Actualizar el índice al nuevo elemento
+        else:
+            updated_df, result = apply_visit_update(df, row_idx=row_idx, payload=payload)
+            
         active_layers = get_active_layers(dataset['city'], dataset['region'])
         if active_layers:
             updated_df = assign_territories_to_dataframe(
@@ -347,19 +362,42 @@ def save_visit(dataset_id: int):
         visit_context = _visit_context_from_row(
             dict(dataset), row_idx, row_data, visit_record)
         print_url = _build_external_url(
-            'admin.visit_print_view',
+            'visits.visit_print_view',
             dataset_id=dataset_id,
             row_idx=row_idx)
-        email_to = (payload.get('correo_envio_destino', '')
+            
+        # --- LÓGICA DE CORREO AUTOMÁTICO CON PDF ADJUNTO ---
+        # Priorizar el correo ingresado en el RVT
+        email_to = (payload.get('rvt_correo_electronico', '') 
+                    or payload.get('correo_envio_destino', '')
                     or user.get('email') or '').strip()
+                    
         email_sent = False
         email_error = ''
-        if email_to:
+        
+        if is_new_entry and email_to:
             subject = build_visit_email_subject(visit_context)
             html_body = build_visit_email_html(visit_context, print_url)
             text_body = build_visit_email_text(visit_context, print_url)
-            email_sent, email_error = send_html_email(
-                email_to, subject, html_body, text_body)
+            
+            # Generar el PDF para adjuntar
+            try:
+                # Asegurar que los anexos estén en el contexto para el PDF
+                visit_context['attachments'] = _attachments_for_visit(dataset_id, row_idx)
+                pdf_bytes = _build_visit_pdf_bytes(dict(dataset), visit_context)
+                pdf_filename = f"RVT_{row_idx}_{payload.get('rvt_razon_social', 'establecimiento')}.pdf"
+                pdf_filename = secure_filename(pdf_filename)
+                
+                email_sent, email_error = send_html_email(
+                    email_to, subject, html_body, text_body,
+                    attachment_data=pdf_bytes,
+                    attachment_filename=pdf_filename
+                )
+            except Exception as pdf_exc:
+                email_error = f"Error generando PDF: {pdf_exc}"
+                # Fallback: enviar sin adjunto si falla el PDF
+                email_sent, email_error = send_html_email(email_to, subject, html_body, text_body)
+
             log_audit(
                 user['id'],
                 'visit_email_attempt',
@@ -370,7 +408,11 @@ def save_visit(dataset_id: int):
                 details={
                     'email_to': email_to,
                     'sent': email_sent,
-                    'error': email_error})
+                    'error': email_error,
+                    'has_pdf': True})
+        elif email_to and not is_new_entry:
+            logging.info(f"Saltando correo automático para fila {row_idx} (no es nuevo establecimiento)")
+        
         log_audit(
             user['id'],
             'visit_update',
@@ -581,8 +623,22 @@ def api_visit_sync_save(dataset_id: int):
                 'signer', '')
         payload['visit_signature_officer_stats'] = sig_officer_meta.get(
             'stats', '')
-        updated_df, result = apply_visit_update(
-            df, row_idx=row_idx, payload=payload)
+        # --- SOPORTE PARA REGISTROS NUEVOS (RVT DESDE CERO EN SYNC) ---
+        is_new_entry = (row_idx >= len(df))
+        
+        if is_new_entry:
+            # Crear una fila vacía con el esquema correcto
+            new_row = {col: '' for col in df.columns}
+            # Combinar con los datos del payload
+            for key, val in payload.items():
+                if key in new_row: new_row[key] = val
+            
+            # Anexar al dataframe
+            updated_df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+            result = type('obj', (object,), {'changed_fields': list(payload.keys())})
+            row_idx = len(updated_df) - 1 # Actualizar el índice al nuevo elemento
+        else:
+            updated_df, result = apply_visit_update(df, row_idx=row_idx, payload=payload)
         active_layers = get_active_layers(dataset['city'], dataset['region'])
         if active_layers:
             updated_df = assign_territories_to_dataframe(
@@ -617,19 +673,40 @@ def api_visit_sync_save(dataset_id: int):
         visit_context = _visit_context_from_row(
             dict(dataset), row_idx, row_data, visit_record)
         print_url = _build_external_url(
-            'visit_print_view',
+            'visits.visit_print_view',
             dataset_id=dataset_id,
             row_idx=row_idx)
-        email_to = (payload.get('correo_envio_destino', '')
+            
+        # --- LÓGICA DE CORREO AUTOMÁTICO CON PDF ADJUNTO (SOLO PARA NUEVOS) ---
+        email_to = (payload.get('rvt_correo_electronico', '') 
+                    or payload.get('correo_envio_destino', '')
                     or user.get('email') or '').strip()
+        
         email_sent = False
         email_error = ''
-        if email_to:
+        
+        if is_new_entry and email_to:
             subject = build_visit_email_subject(visit_context)
             html_body = build_visit_email_html(visit_context, print_url)
             text_body = build_visit_email_text(visit_context, print_url)
-            email_sent, email_error = send_html_email(
-                email_to, subject, html_body, text_body)
+            
+            try:
+                # Adjuntar PDF
+                visit_context['attachments'] = _attachments_for_visit(dataset_id, row_idx)
+                pdf_bytes = _build_visit_pdf_bytes(dict(dataset), visit_context)
+                pdf_filename = f"RVT_{row_idx}_{payload.get('rvt_razon_social', 'establecimiento')}.pdf"
+                pdf_filename = secure_filename(pdf_filename)
+                
+                email_sent, email_error = send_html_email(
+                    email_to, subject, html_body, text_body,
+                    attachment_data=pdf_bytes,
+                    attachment_filename=pdf_filename
+                )
+            except Exception as pdf_exc:
+                email_error = f"Error PDF Sync: {pdf_exc}"
+                email_sent, email_error = send_html_email(email_to, subject, html_body, text_body)
+        elif email_to and not is_new_entry:
+            logging.info(f"Saltando correo sync para fila {row_idx} (no es nuevo)")
         log_audit(
             user['id'],
             'visit_sync_update',

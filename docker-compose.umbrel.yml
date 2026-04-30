@@ -10,9 +10,17 @@ services:
     ports: 
       - "8000:8000"
     volumes:
-      - ${APP_DATA_DIR}/data:/app/backend/geobusca_data
+      - /home/umbrel/geobusca_data:/app/geobusca_data
     environment:
       - FLASK_HOST=0.0.0.0
       - FLASK_PORT=8000
       - FLASK_DEBUG=0
-      - FLASK_SECRET_KEY=geobusca_secret_key_123
+      - FLASK_SECRET_KEY=4f67d0874b57a6015d778064c2d87c8c103ba7e09bf9d66c7e8d9dd0c9ba2d05
+      - APP_BASE_URL=http://192.168.1.28:8000
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USERNAME=camilo152893@gmail.com
+      - SMTP_PASSWORD=iucihbjuscpxajyg
+      - SMTP_FROM_EMAIL=camilo152893@gmail.com
+      - SMTP_FROM_NAME=GeoBusca Territorial Rionegro
+      - SMTP_USE_TLS=1

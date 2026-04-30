@@ -35,11 +35,11 @@ RUN useradd -m -u 1001 -s /bin/bash geobusca \
 COPY --chown=geobusca:geobusca . .
 
 # Crear directorios de datos con permisos correctos en la ubicación esperada por el código
-RUN mkdir -p /app/backend/geobusca_data/uploads \
-    /app/backend/geobusca_data/exports \
-    /app/backend/geobusca_data/territorial_layers \
-    /app/backend/geobusca_data/visit_media \
-    && chown -R geobusca:geobusca /app/backend/geobusca_data
+RUN mkdir -p /app/geobusca_data/uploads \
+    /app/geobusca_data/exports \
+    /app/geobusca_data/territorial_layers \
+    /app/geobusca_data/visit_media \
+    && chown -R geobusca:geobusca /app/geobusca_data
 
 # Puerto de la aplicación
 EXPOSE 8000

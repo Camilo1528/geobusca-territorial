@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from werkzeug.security import generate_password_hash
-BASE_DIR = Path(__file__).resolve().parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 APP_DATA_DIR = BASE_DIR / 'geobusca_data'
 UPLOAD_DIR = APP_DATA_DIR / 'uploads'
 EXPORT_DIR = APP_DATA_DIR / 'exports'

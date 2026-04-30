@@ -136,19 +136,67 @@ def upload():
         loaded.to_csv(path, index=False, encoding='utf-8-sig')
         flash(f'Enriquecimiento territorial automático aplicado usando {len(active_layers)} capas.', 'info')
 
+    # --- LÓGICA DE DATASET MAESTRO ÚNICO ---
     with get_conn() as conn:
-        cur = conn.execute(
-            'INSERT INTO datasets (user_id, original_filename, stored_filename, provider, city, region, row_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            (user['id'], file.filename, stored, provider, city, region, row_count, now_iso()),
-        )
-        dataset_id = cur.lastrowid
+        master = conn.execute(
+            'SELECT id, stored_filename, row_count FROM datasets WHERE original_filename = "MAESTRO_UNIFICADO" AND user_id = ?',
+            (user['id'],)
+        ).fetchone()
+
+    if master:
+        dataset_id = master['id']
+        master_path = UPLOAD_DIR / master['stored_filename']
         
-    # Index for fast deduplication
+        # Cargar maestro actual
+        if master_path.exists():
+            master_df = now_df(master_path)
+            # Combinar y eliminar duplicados internos
+            combined = pd.concat([master_df, loaded], ignore_index=True)
+            # Detectar columnas de nit/matricula para deduplicar el maestro
+            cedula_col = dataset_service.find_col(combined, ['cedula', 'cédula', 'nit', 'cc', 'identificacion', 'identificación', 'documento'])
+            matricula_col = dataset_service.find_col(combined, ['matricula', 'matrícula', 'mat', 'placa'])
+            
+            if cedula_col and matricula_col:
+                combined.drop_duplicates(subset=[cedula_col, matricula_col], keep='first', inplace=True)
+            
+            new_row_count = len(combined)
+            combined.to_csv(master_path, index=False, encoding='utf-8-sig')
+            
+            with get_conn() as conn:
+                conn.execute(
+                    'UPDATE datasets SET row_count=?, created_at=? WHERE id=?',
+                    (new_row_count, now_iso(), dataset_id)
+                )
+            flash(f"Datos anexados al Maestro Unificado. Nuevo total: {new_row_count} registros.", 'success')
+        else:
+            # Si el registro existe pero el archivo no (raro), lo creamos de nuevo
+            loaded.to_csv(master_path, index=False, encoding='utf-8-sig')
+            flash("Archivo maestro restaurado y actualizado.", 'info')
+    else:
+        # Crear el Maestro por primera vez
+        stored = f"master_{user['id']}_{secrets.token_hex(4)}.csv"
+        path = UPLOAD_DIR / stored
+        loaded.to_csv(path, index=False, encoding='utf-8-sig')
+        
+        with get_conn() as conn:
+            cur = conn.execute(
+                'INSERT INTO datasets (user_id, original_filename, stored_filename, provider, city, region, row_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                (user['id'], "MAESTRO_UNIFICADO", stored, provider, city, region, len(loaded), now_iso()),
+            )
+            dataset_id = cur.lastrowid
+        flash(f"Dataset Maestro Unificado creado con {len(loaded)} registros.", 'success')
+
+    # Limpiar archivos temporales
+    if 'temp_path' in locals() and temp_path.exists():
+        temp_path.unlink(missing_ok=True)
+    
+    # Indexar para búsquedas rápidas
     dataset_service.register_dataset_establishments(dataset_id, user['id'], loaded)
     
+    # Limpiar caches
     dataset_service.RAW_DATASET_CACHE.pop(dataset_service._cache_key(dataset_id, user['id']), None)
     dataset_service.PROCESSED_DATASET_CACHE.pop(dataset_service._cache_key(dataset_id, user['id']), None)
-    flash(f"Archivo cargado correctamente. Filas: {profile['rows']} · Columnas: {profile['columns']}", 'success')
+    
     return redirect(url_for('datasets.review', dataset_id=dataset_id))
 
 

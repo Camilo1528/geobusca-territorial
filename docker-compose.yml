@@ -9,7 +9,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./backend/geobusca_data:/app/backend/geobusca_data
+      - ./geobusca_data:/app/geobusca_data
     environment:
       - FLASK_HOST=0.0.0.0
       - FLASK_DEBUG=0

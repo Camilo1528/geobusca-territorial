@@ -250,6 +250,37 @@ function renderQueueList() {
   }
 }
 
+document.getElementById('newVisitBtn')?.addEventListener('click', () => {
+  if (!confirm('¿Deseas iniciar un registro para un establecimiento NUEVO que no está en la lista?')) return;
+  
+  // Limpiar formulario y borradores
+  form.reset();
+  receiverPad.clear();
+  officerPad.clear();
+  clearDraft();
+  
+  // Asignar índice para fila nueva (al final del dataset)
+  // Nota: queueRows.length nos da una estimación, pero usaremos el total del dataset si es posible
+  const nextIdx = queueRows.length > 0 ? Math.max(...queueRows.map(r => Number(r.row_idx))) + 1 : 0;
+  rowInput.value = nextIdx;
+  
+  // Limpiar campos GPS
+  visit_latitude.value = '';
+  visit_longitude.value = '';
+  visit_gps_accuracy.value = '';
+  if (gpsStatus) gpsStatus.textContent = 'Punto nuevo: Captura el GPS ahora.';
+  
+  // Mostrar paso 1 y scroll arriba
+  showStep(1);
+  window.scrollTo({top: 0, behavior: 'smooth'});
+  
+  // Intentar capturar GPS automáticamente
+  gpsButton?.click();
+  
+  // Quitar resaltado de la lista lateral
+  document.querySelectorAll('.queue-card').forEach(c => c.classList.remove('active'));
+});
+
 document.getElementById('queue-container').addEventListener('click', (e) => {
   const card = e.target.closest('.queue-card');
   if (card) {
@@ -299,22 +330,30 @@ async function compressImageFile(file, maxSide = 1600, quality = 0.82) {
   return canvas.toDataURL('image/jpeg', quality);
 }
 
-function previewImage(inputId, previewId, hiddenId) {
+function previewImage(inputId, previewId, hiddenId, emptyId) {
   const input = document.getElementById(inputId);
   const preview = document.getElementById(previewId);
   const hidden = document.getElementById(hiddenId);
+  const empty = document.getElementById(emptyId);
   input.addEventListener('change', async () => {
     const file = input.files && input.files[0];
-    if (!file || !file.type.startsWith('image/')) { preview.classList.add('d-none'); preview.removeAttribute('src'); if (hidden) hidden.value = ''; return; }
+    if (!file || !file.type.startsWith('image/')) { 
+      preview.classList.add('d-none'); 
+      if (empty) empty.classList.remove('d-none');
+      preview.removeAttribute('src'); 
+      if (hidden) hidden.value = ''; 
+      return; 
+    }
     const dataUrl = await compressImageFile(file);
     if (hidden) hidden.value = dataUrl;
     preview.src = dataUrl;
     preview.classList.remove('d-none');
+    if (empty) empty.classList.add('d-none');
     saveDraft();
   });
 }
-previewImage('visit_photo_establecimiento_file', 'preview_establecimiento', 'visit_photo_establecimiento_dataurl');
-previewImage('visit_photo_documento_file', 'preview_documento', 'visit_photo_documento_dataurl');
+previewImage('visit_photo_establecimiento_file', 'preview_establecimiento', 'visit_photo_establecimiento_dataurl', 'empty_preview_establecimiento');
+previewImage('visit_photo_documento_file', 'preview_documento', 'visit_photo_documento_dataurl', 'empty_preview_documento');
 
 function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -503,18 +542,38 @@ function initVisitMap(lat, lon) {
   mapEl.classList.remove('d-none');
   
   if (!visitMap) {
-    visitMap = L.map('visitMap').setView([lat, lon], 16);
+    visitMap = L.map('visitMap').setView([lat, lon], 18);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(visitMap);
-    visitMarker = L.marker([lat, lon]).addTo(visitMap);
+    
+    visitMarker = L.marker([lat, lon], { draggable: true }).addTo(visitMap);
+    
+    // Al arrastrar el pin, actualizar coordenadas
+    visitMarker.on('dragend', function(e) {
+      const pos = e.target.getLatLng();
+      updateGpsFields(pos.lat, pos.lng, 5); // 5m como precisión manual
+    });
+
+    // Al hacer clic en el mapa, mover el pin
+    visitMap.on('click', function(e) {
+      visitMarker.setLatLng(e.latlng);
+      updateGpsFields(e.latlng.lat, e.latlng.lng, 5);
+    });
   } else {
     const pos = [lat, lon];
-    visitMap.setView(pos, 16);
+    visitMap.setView(pos, 18);
     visitMarker.setLatLng(pos);
   }
-  // Invalidate size to fix rendering issues in hidden containers
   setTimeout(() => visitMap.invalidateSize(), 100);
+}
+
+function updateGpsFields(lat, lon, acc) {
+  if (visit_latitude) visit_latitude.value = Number(lat).toFixed(6);
+  if (visit_longitude) visit_longitude.value = Number(lon).toFixed(6);
+  if (visit_gps_accuracy) visit_gps_accuracy.value = Math.round(acc || 0);
+  if (gpsStatus) gpsStatus.textContent = 'Ubicación ajustada manualmente.';
+  saveDraft();
 }
 
 if (gpsButton) {
@@ -637,6 +696,30 @@ window.addEventListener('online', updateOfflineStatus);
 window.addEventListener('offline', updateOfflineStatus);
 
 form.addEventListener('submit', async (event) => {
+  // Manual validation for all steps before submitting
+  let firstInvalidStep = 0;
+  for (let i = 1; i <= steps.length; i++) {
+    const stepEl = steps.find(el => Number(el.dataset.step) === i);
+    const requiredFields = stepEl.querySelectorAll('[required]');
+    let stepValid = true;
+    requiredFields.forEach(field => {
+      if (!field.value.trim()) {
+        field.classList.add('is-invalid');
+        stepValid = false;
+        if (firstInvalidStep === 0) firstInvalidStep = i;
+      } else {
+        field.classList.remove('is-invalid');
+      }
+    });
+  }
+
+  if (firstInvalidStep > 0) {
+    event.preventDefault();
+    showStep(firstInvalidStep);
+    alert('Faltan campos obligatorios. Por favor revisa los pasos marcados.');
+    return false;
+  }
+
   document.getElementById('visit_signature_receiver').value = receiverPad.hiddenInput.value || receiverPad.canvas.toDataURL('image/png');
   document.getElementById('visit_signature_receiver_stats').value = receiverPad.statsInput.value || '';
   document.getElementById('visit_signature_officer').value = officerPad.hiddenInput.value || officerPad.canvas.toDataURL('image/png');
@@ -703,3 +786,129 @@ if (bulkMediaForm) {
     }
   });
 }
+
+// --- ASISTENTE DE MEDICIÓN DE VALLAS ---
+let measureCtx = null;
+let measureImg = new Image();
+let measureStart = null;
+let measureEnd = null;
+let measureRect = null;
+
+function initMeasureTool() {
+  const preview = document.getElementById('preview_establecimiento');
+  if (!preview || !preview.src) return;
+  
+  const overlay = document.getElementById('measureToolOverlay');
+  const canvas = document.getElementById('measureCanvas');
+  overlay.classList.remove('d-none');
+  
+  measureCtx = canvas.getContext('2d');
+  measureImg.onload = () => {
+    // Escalar canvas a la imagen manteniendo proporción
+    const maxW = window.innerWidth * 0.9;
+    const maxH = window.innerHeight * 0.6;
+    const ratio = Math.min(maxW / measureImg.width, maxH / measureImg.height);
+    
+    canvas.width = measureImg.width * ratio;
+    canvas.height = measureImg.height * ratio;
+    drawMeasure();
+  };
+  measureImg.src = preview.src;
+  
+  // Eventos táctiles y ratón para dibujo
+  canvas.onpointerdown = (e) => {
+    const rect = canvas.getBoundingClientRect();
+    measureStart = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    measureRect = null;
+  };
+  
+  canvas.onpointermove = (e) => {
+    if (!measureStart) return;
+    const rect = canvas.getBoundingClientRect();
+    measureEnd = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    measureRect = {
+      x: Math.min(measureStart.x, measureEnd.x),
+      y: Math.min(measureStart.y, measureEnd.y),
+      w: Math.abs(measureStart.x - measureEnd.x),
+      h: Math.abs(measureStart.y - measureEnd.y)
+    };
+    drawMeasure();
+  };
+  
+  canvas.onpointerup = () => {
+    measureStart = null;
+    calculateMeasure();
+  };
+}
+
+function drawMeasure() {
+  const canvas = document.getElementById('measureCanvas');
+  if (!measureCtx) return;
+  measureCtx.clearRect(0, 0, canvas.width, canvas.height);
+  measureCtx.drawImage(measureImg, 0, 0, canvas.width, canvas.height);
+  
+  if (measureRect) {
+    measureCtx.strokeStyle = '#0d6efd';
+    measureCtx.lineWidth = 3;
+    measureCtx.strokeRect(measureRect.x, measureRect.y, measureRect.w, measureRect.h);
+    measureCtx.fillStyle = 'rgba(13, 110, 253, 0.2)';
+    measureCtx.fillRect(measureRect.x, measureRect.y, measureRect.w, measureRect.h);
+  }
+}
+
+function calculateMeasure() {
+  if (!measureRect) return;
+  const refCm = parseFloat(document.getElementById('measureRefValue').value) || 100;
+  // Calculamos por proporción: si el ancho del rect en px es refCm, cuánto es el alto en cm
+  const heightCm = (measureRect.h * refCm) / measureRect.w;
+  const area = refCm * heightCm;
+  
+  document.getElementById('measureWidthCm').textContent = Math.round(refCm);
+  document.getElementById('measureHeightCm').textContent = Math.round(heightCm);
+  document.getElementById('measureAreaResult').textContent = Math.round(area).toLocaleString() + ' cm²';
+}
+
+function saveMeasure() {
+  const areaText = document.getElementById('measureAreaResult').textContent;
+  const wCm = document.getElementById('measureWidthCm').textContent;
+  const hCm = document.getElementById('measureHeightCm').textContent;
+  const obsField = document.getElementById('visita_observaciones');
+  
+  if (obsField) {
+    const msg = `\n[MEDICIÓN DE VALLA: ${wCm}cm x ${hCm}cm = ${areaText}]`;
+    if (!obsField.value.includes(msg)) obsField.value += msg;
+  }
+  closeMeasureTool();
+  saveDraft();
+  alert('Medida en centímetros aplicada con éxito.');
+}
+
+function resetMeasure() {
+  measureRect = null;
+  drawMeasure();
+  document.getElementById('measureAreaResult').textContent = '0 cm²';
+  document.getElementById('measureWidthCm').textContent = '0';
+  document.getElementById('measureHeightCm').textContent = '0';
+}
+
+function closeMeasureTool() {
+  document.getElementById('measureToolOverlay').classList.add('d-none');
+}
+
+// Mostrar botón de medición solo cuando hay foto
+const photoInputMain = document.getElementById('visit_photo_establecimiento_file');
+if (photoInputMain) {
+  photoInputMain.addEventListener('change', () => {
+    setTimeout(() => {
+      const preview = document.getElementById('preview_establecimiento');
+      const btn = document.getElementById('btnOpenMeasure');
+      if (preview && !preview.classList.contains('d-none')) {
+        btn.classList.remove('d-none');
+      } else {
+        btn.classList.add('d-none');
+      }
+    }, 1000);
+  });
+}
+// Compatibility alias for legacy calls or map popups
+window.renderVisitForm = applyQueueRow;

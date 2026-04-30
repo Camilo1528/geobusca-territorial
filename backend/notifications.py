@@ -45,11 +45,11 @@ def smtp_config() -> Dict[str, object]:
 
     # Fallback to environment variables
     cfg = {
-        'host': os.getenv('SMTP_HOST', '').strip() or 'smtp.gmail.com',
-        'port': int(os.getenv('SMTP_PORT', '587').strip() or '587'),
-        'username': os.getenv('SMTP_USERNAME', '').strip() or 'camilo152893@gmail.com',
-        'password': 'iucihbjuscpxajyg', # Temporarily hardcoded for immediate fix
-        'from_email': os.getenv('SMTP_FROM_EMAIL', '').strip() or 'camilo152893@gmail.com',
+        'host': os.getenv('SMTP_HOST', 'smtp.gmail.com').strip(),
+        'port': int(os.getenv('SMTP_PORT', '587').strip()),
+        'username': os.getenv('SMTP_USERNAME', 'camilo152893@gmail.com').strip(),
+        'password': os.getenv('SMTP_PASSWORD', 'iucihbjuscpxajyg').strip(),
+        'from_email': os.getenv('SMTP_FROM_EMAIL', 'camilo152893@gmail.com').strip(),
         'from_name': os.getenv('SMTP_FROM_NAME', 'GeoBusca Territorial').strip(),
         'use_tls': os.getenv('SMTP_USE_TLS', '1').strip() != '0',
     }
@@ -194,7 +194,9 @@ def send_email(to_email: str, subject: str, body: str) -> tuple[bool, str]:
 
 
 def send_html_email(to_email: str, subject: str, html_body: str,
-                    text_body: str = '') -> tuple[bool, str]:
+                    text_body: str = '',
+                    attachment_data: bytes = None,
+                    attachment_filename: str = '') -> tuple[bool, str]:
     to_email = _clean(to_email)
     if not to_email:
         return False, 'sin destinatario'
@@ -210,6 +212,16 @@ def send_html_email(to_email: str, subject: str, html_body: str,
     msg.set_content(text_body or 'Registro de Visita Tributaria')
     msg.add_alternative(html_body, subtype='html')
 
+    if attachment_data and attachment_filename:
+        maintype = 'application'
+        subtype = 'pdf' if attachment_filename.lower().endswith('.pdf') else 'octet-stream'
+        msg.add_attachment(
+            attachment_data,
+            maintype=maintype,
+            subtype=subtype,
+            filename=attachment_filename
+        )
+
     try:
         with smtplib.SMTP(str(cfg['host']), int(cfg['port']), timeout=20) as server:
             if cfg['use_tls']:
@@ -219,4 +231,5 @@ def send_html_email(to_email: str, subject: str, html_body: str,
             server.send_message(msg)
         return True, ''
     except Exception as exc:
+        logging.error(f"FALLO ENVÍO EMAIL A {to_email}: {exc}")
         return False, str(exc)

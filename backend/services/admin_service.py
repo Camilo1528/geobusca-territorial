@@ -144,12 +144,29 @@ def get_manager_metrics(start_date: Optional[str] = None, end_date: Optional[str
             params
         ).fetchall()
 
+        # 4. Global counts
+        user_counts = conn.execute('SELECT role, COUNT(*) as count FROM users GROUP BY role').fetchall()
+        dataset_count = conn.execute('SELECT COUNT(*) FROM datasets').fetchone()[0]
+        visit_count = conn.execute('SELECT COUNT(*) FROM visit_records').fetchone()[0]
+        conflict_pending = conn.execute('SELECT COUNT(*) FROM visit_conflicts WHERE resolution_status="pending"').fetchone()[0]
+        sync_errors = conn.execute('SELECT COUNT(*) FROM sync_events WHERE status="error"').fetchone()[0]
+
+    roles = {r['role']: r['count'] for r in user_counts}
+    
     return {
         'start_date': start_date,
         'end_date': end_date,
         'sla': {r['sla_status'] or 'planned': r['count'] for r in sla_stats},
         'completion': {r['completion_status'] or 'pending': r['count'] for r in visit_stats},
-        'staff': [dict(r) for r in staff_perf]
+        'staff': [dict(r) for r in staff_perf],
+        'usuarios': sum(roles.values()),
+        'funcionarios': roles.get('funcionario', 0),
+        'revisores': roles.get('revisor', 0),
+        'admins': roles.get('admin', 0),
+        'datasets': dataset_count,
+        'visitas': visit_count,
+        'conflictos_pendientes': conflict_pending,
+        'errores_sync': sync_errors
     }
 
 def get_queue_rows_for_assignment(dataset_id: int, user_id: int, territory_type: str = '', territory_value: str = '', approval_filter: str = '') -> list[dict]:
