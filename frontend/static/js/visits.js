@@ -1,6 +1,7 @@
 const queueRows = window.queueRows || [];
 const visitRecords = window.visitRecords || [];
 const datasetId = window.datasetId || 0;
+const totalRows = window.totalRows || 0;
 
 const stepButtons = Array.from(document.querySelectorAll('.step-trigger'));
 const steps = Array.from(document.querySelectorAll('.wizard-step'));
@@ -259,9 +260,8 @@ document.getElementById('newVisitBtn')?.addEventListener('click', () => {
   officerPad.clear();
   clearDraft();
   
-  // Asignar índice para fila nueva (al final del dataset)
-  // Nota: queueRows.length nos da una estimación, pero usaremos el total del dataset si es posible
-  const nextIdx = queueRows.length > 0 ? Math.max(...queueRows.map(r => Number(r.row_idx))) + 1 : 0;
+  // Asignar índice para fila nueva (al final del dataset real)
+  const nextIdx = Number(window.totalRows || 0);
   rowInput.value = nextIdx;
   
   // Limpiar campos GPS

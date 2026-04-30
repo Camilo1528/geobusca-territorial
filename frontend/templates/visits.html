@@ -469,8 +469,9 @@
 <script id="visit-context-data" type="application/json">
 {
   "datasetId": {{ dataset.id }},
+  "totalRows": {{ total_rows }},
   "queueRows": {{ queue|tojson }},
-  "visitRecords": {{ visit_records|tojson }}
+  "visit_records": {{ visit_records|tojson }}
 }
 </script>
 <script>
@@ -479,8 +480,9 @@
     if (dataNode) {
       const data = JSON.parse(dataNode.textContent);
       window.datasetId = data.datasetId;
+      window.totalRows = data.totalRows;
       window.queueRows = data.queueRows;
-      window.visitRecords = data.visitRecords;
+      window.visitRecords = data.visit_records;
     }
   })();
 </script>

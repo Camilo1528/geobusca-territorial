@@ -16,8 +16,14 @@ import backend.services.event_service as event_service
 visits_bp = Blueprint("visits", __name__)
 
 @visits_bp.route('/visits/all')
-@app_main.login_required
+@login_required
 def visits_view_all():
+    user = current_user()
+    with get_conn() as conn:
+        dataset = conn.execute('SELECT id FROM datasets WHERE user_id=? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
+    if dataset:
+        return redirect(url_for('visits.visits_view', dataset_id=dataset['id']))
+    flash('No tienes datasets cargados para ver visitas.', 'info')
     return redirect(url_for('dashboard.dashboard'))
 
 
@@ -93,6 +99,7 @@ def visits_view(dataset_id: int):
     queue = build_visit_queue(df, q=q, only_pending=only_pending, limit=500)
     visit_summary = summarize_visits(df)
     return render_template('visits.html', dataset=dataset, queue=queue, visit_summary=visit_summary,
+                           total_rows=len(df),
                            visit_records=_visit_records_for_dataset(dataset_id), only_pending=only_pending, q=q, user=user)
 
 
