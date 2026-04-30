@@ -1,5 +1,7 @@
 from flask import Blueprint, request, flash, redirect, url_for, render_template, jsonify, abort, make_response, send_file
 import os
+import logging
+
 import json
 import secrets
 from io import BytesIO
@@ -12,6 +14,8 @@ import backend.services.dataset_service as dataset_service
 import backend.services.visit_service as visit_service
 import backend.services.territory_service as territory_service
 import backend.services.event_service as event_service
+import pandas as pd
+
 
 visits_bp = Blueprint("visits", __name__)
 
@@ -21,10 +25,11 @@ def visits_view_all():
     user = current_user()
     with get_conn() as conn:
         # Si es admin/revisor, ver el último dataset de cualquier usuario, si no, solo los propios
-        if user.get('role') in ['admin', 'revisor']:
+        if has_role(user, 'revisor'):
             dataset = conn.execute('SELECT id FROM datasets ORDER BY created_at DESC LIMIT 1').fetchone()
         else:
             dataset = conn.execute('SELECT id FROM datasets WHERE user_id=? ORDER BY created_at DESC LIMIT 1', (user['id'],)).fetchone()
+
     
     if dataset:
         return redirect(url_for('visits.visits_view', dataset_id=dataset['id']))
@@ -37,6 +42,7 @@ def visits_view_all():
 login_required = app_main.login_required
 module_required = app_main.module_required
 role_required = app_main.role_required
+has_role = app_main.has_role
 current_user = app_main.current_user
 get_user_dataset = dataset_service.get_user_dataset
 ensure_visit_columns = app_main.ensure_visit_columns
@@ -300,7 +306,7 @@ def save_visit(dataset_id: int):
                 'Conflicto de visita detectado',
                 f'Se detectó un conflicto en dataset {dataset_id}, fila {row_idx}.',
                 url_for(
-                    'conflict_detail',
+                    'admin.conflict_detail',
                     conflict_id=conflict_id))
             _notify_roles(
                 'revisor',
@@ -308,13 +314,14 @@ def save_visit(dataset_id: int):
                 'Nuevo conflicto pendiente',
                 f'Conflicto pendiente en dataset {dataset_id}, fila {row_idx}.',
                 url_for(
-                    'conflict_detail',
+                    'admin.conflict_detail',
                     conflict_id=conflict_id))
+
             flash(
                 'Conflicto detectado: otra versión de la visita fue guardada antes de esta. Revisa la última versión o usa sobrescribir desde la tablet.',
                 'warning')
             return redirect(url_for(
-                'visit_print_view', dataset_id=dataset_id, row_idx=row_idx, conflict='1'))
+                'visits.visit_print_view', dataset_id=dataset_id, row_idx=row_idx, conflict='1'))
         # --- SOPORTE PARA REGISTROS NUEVOS (RVT DESDE CERO) ---
         is_new_entry = (row_idx >= len(df))
         

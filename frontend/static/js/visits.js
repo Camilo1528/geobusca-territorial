@@ -260,7 +260,11 @@ document.getElementById('newVisitBtn')?.addEventListener('click', () => {
   officerPad.clear();
   clearDraft();
   
+  const typeSelect = document.getElementById('rvt_tipo_visita');
+  if (typeSelect) typeSelect.value = "Nuevo Establecimiento";
+  
   // Asignar índice para fila nueva (al final del dataset real)
+
   const nextIdx = Number(window.totalRows || 0);
   rowInput.value = nextIdx;
   
